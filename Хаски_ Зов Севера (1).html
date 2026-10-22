@@ -1,0 +1,1903 @@
+<!doctype html><html lang="ru"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a1430">
+<meta name="mobile-web-app-capable" content="yes">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+html,body{margin:0;padding:0;background:#0a1430;color:#eef4ff;overscroll-behavior:none;touch-action:manipulation}
+img{max-width:100%}
+[hidden]:not([hidden=until-found i]){display:none!important}
+</style>
+<title>Хаски: Зов Севера</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600&display=swap">
+</head><body>
+<style>
+/* Layout: one shared night-tundra canvas. Kennel UI sits over it; Trek / Workshop / Fair / Breeds are sheets above a fixed bottom nav; a run hides everything except its HUD. Single night palette by design. */
+:root{
+  --night:#0a1430;
+  --panel:rgba(9,18,44,.93);
+  --card:rgba(18,32,72,.8);
+  --snow:#eef4ff;
+  --muted:#9fb0d6;
+  --aurora:#7ef0c8;
+  --violet:#a48cff;
+  --harness:#ff7a59;
+  --harness-ink:#2a0f05;
+  --fish:#ff9f6b;
+  --gold:#ffc94a;
+  --shard:#9fd0ff;
+  --danger:#ff5d5d;
+  --line:rgba(238,244,255,.14);
+  /* Telegram: JS перезаписывает --sa*, --topui и --vh значениями из WebApp
+     (safeAreaInset, contentSafeAreaInset, viewportStableHeight).
+     В обычном браузере работают env(). */
+  --sat:env(safe-area-inset-top,0px);
+  --sar:env(safe-area-inset-right,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);
+  --topui:env(safe-area-inset-top,0px);
+  --vh:100%;
+  --navh:calc(66px + var(--sab));
+  --display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --body:'Golos Text',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:var(--vh);margin:0;overscroll-behavior:none}
+body{background:var(--night);color:var(--snow);font-family:var(--body);font-size:15px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{position:relative;height:var(--vh);overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#fx{pointer-events:none;z-index:28}
+svg{display:block}
+
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;transition:transform .08s ease,filter .15s ease,background .15s ease}
+button:active:not(:disabled){transform:scale(.97)}
+button:focus-visible{outline:2px solid var(--aurora);outline-offset:3px}
+button:disabled{cursor:not-allowed}
+.primary{background:var(--harness);color:var(--harness-ink);font-family:var(--display);font-weight:700;border-radius:15px;min-height:50px;padding:0 18px}
+.primary:hover:not(:disabled){filter:brightness(1.07)}
+.primary:disabled{background:#4d4560;color:#c9bfd2}
+.ghost{border:1px solid rgba(238,244,255,.25);border-radius:14px;min-height:48px;padding:0 16px;font-weight:600}
+.ghost:hover:not(:disabled){background:rgba(238,244,255,.06)}
+.ghost:disabled{opacity:.45}
+.small{min-height:38px;border-radius:11px;padding:0 12px;font-size:13px}
+.shardbtn{background:var(--shard);color:#0a1430}
+h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.08}
+h2{font-weight:800;font-size:clamp(22px,6.6vw,28px)}
+h3{font-weight:700;font-size:15px}
+p{margin:0}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--aurora)}
+.muted{color:var(--muted)}
+.coin-ic{width:20px;height:20px;flex:none}
+.price{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---------- питомник ---------- */
+#kennel{position:absolute;inset:0 0 var(--navh) 0;z-index:10;display:flex;flex-direction:column;padding-block:calc(12px + var(--topui)) 10px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));pointer-events:none}
+#kennel > *{pointer-events:auto;width:100%;max-width:460px;margin-left:auto;margin-right:auto}
+#kennel > .sky{pointer-events:none;flex:1 1 20px;min-height:8px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.bal{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bal-row{display:flex;align-items:center;gap:8px}
+.bal-row svg{width:28px;height:28px;flex:none}
+.bal-num{font-family:var(--display);font-weight:800;font-size:clamp(22px,7vw,30px);line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 20px rgba(5,11,31,.7);white-space:nowrap}
+.ips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:#d6e0f6}
+.ips b{font-variant-numeric:tabular-nums;color:var(--snow)}
+.boost{font-size:11px;font-weight:700;letter-spacing:.06em;color:#062a1e;background:var(--aurora);border-radius:999px;padding:3px 9px;font-variant-numeric:tabular-nums}
+.hside{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.hbtn{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:rgba(9,18,44,.6);border-radius:12px;padding:8px 10px;font-weight:600;font-size:13px;white-space:nowrap}
+.shards{display:flex;align-items:center;gap:5px;font-family:var(--display);font-weight:700;font-size:13px;color:var(--shard);font-variant-numeric:tabular-nums}
+.shards svg{width:16px;height:16px}
+
+.mid{display:flex;flex-direction:column;gap:8px;min-height:0;flex:0 1 auto;overflow-y:auto;overscroll-behavior:contain}
+.team{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:8px 12px 8px 8px}
+.team .dogs{display:flex}
+.team .dogs img{width:42px;height:auto;margin-right:-10px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+.team .dogs i{width:36px;height:30px;border:1.5px dashed var(--line);border-radius:10px;margin-right:4px}
+.team b{font-family:var(--display);font-size:13px;display:block}
+.team small{font-size:12px;color:var(--muted);display:block;line-height:1.3}
+.team .pw{font-family:var(--display);font-weight:800;font-size:17px;text-align:right;line-height:1;font-variant-numeric:tabular-nums}
+.team .pw small{font-family:var(--body);font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+.status{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px;flex-wrap:wrap}
+.hint{font-size:13px;font-weight:600;color:var(--night);background:var(--snow);border-radius:10px;padding:6px 10px;line-height:1.3;box-shadow:0 6px 20px rgba(5,11,31,.35);flex:1 1 200px}
+.chip{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#26355f;background:rgba(238,244,255,.86);border-radius:999px;padding:5px 10px 5px 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip i{width:16px;height:16px;border-radius:50%;background:conic-gradient(var(--harness) var(--p,0%),rgba(38,53,95,.2) 0)}
+.chip.inbox{background:var(--gold);color:#3a2600;padding-left:10px}
+.chip-row{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+
+.grid{display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:6px;touch-action:none}
+.cell{position:relative;aspect-ratio:1;max-width:100%;border-radius:14px;background:radial-gradient(70% 45% at 50% 78%,rgba(255,255,255,.55),rgba(255,255,255,.12) 70%,rgba(255,255,255,0));border:1.5px dashed rgba(80,105,165,.35);display:grid;place-items:center}
+.cell.full{border-style:solid;border-color:rgba(80,105,165,.22);cursor:grab}
+.cell.lead{border-color:rgba(255,122,89,.65);border-width:2px}
+.cell.match{border:2px solid var(--aurora);box-shadow:0 0 18px rgba(126,240,200,.55);background-color:rgba(126,240,200,.12)}
+.cell.over{transform:scale(1.05)}
+.dog{width:112%;max-width:none;height:auto;pointer-events:none;animation:bob 2.6s ease-in-out infinite;transform-origin:50% 90%;margin-top:-10%}
+.cell.lifted .dog{opacity:.25;animation:none}
+.lv{position:absolute;left:4px;bottom:4px;min-width:20px;height:19px;border-radius:6px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:10px;color:var(--snow);background:var(--lc,#26355f);padding:0 4px}
+.lead-tag{position:absolute;right:3px;top:3px;width:17px;height:17px;border-radius:50%;background:var(--harness);display:grid;place-items:center}
+.crate{width:72%;cursor:pointer;animation:wiggle 2.2s ease-in-out infinite}
+.crate svg{width:100%;height:auto}
+.pop .dog{animation:pop .55s cubic-bezier(.2,1.6,.4,1)}
+.hop .dog{animation:hop .35s ease-out}
+.shake{animation:shake .35s}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes pop{0%{transform:scale(.3)}100%{transform:scale(1)}}
+@keyframes hop{0%{transform:translateY(0)}40%{transform:translateY(-14px) scale(1.05,.95)}100%{transform:translateY(0)}}
+@keyframes wiggle{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-6deg)}90%{transform:rotate(6deg)}95%{transform:rotate(-3deg)}}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.buybar{margin-top:8px}
+.buy{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+.buy img{width:44px;height:auto;margin:-8px 0 -6px -6px}
+.buy .bl{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:1}
+.buy .bl span{font-family:var(--body);font-weight:600;font-size:12px;opacity:.8}
+.ghostdog{position:absolute;z-index:30;width:100px;pointer-events:none;transform:translate(-50%,-62%) scale(1.1);filter:drop-shadow(0 12px 14px rgba(5,11,31,.45))}
+
+/* ---------- нижнее меню ---------- */
+.nav{position:absolute;left:0;right:0;bottom:0;height:var(--navh);box-sizing:border-box;padding-bottom:var(--sab);z-index:32;display:grid;grid-template-columns:repeat(5,1fr);background:rgba(6,12,32,.96);border-top:1px solid var(--line);padding-left:max(4px,var(--sal));padding-right:max(4px,var(--sar))}
+.nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--muted);position:relative;min-width:0}
+.nav button svg{width:23px;height:23px}
+.nav button[aria-current="page"]{color:var(--snow)}
+.nav button[aria-current="page"]::before{content:"";position:absolute;top:0;left:26%;right:26%;height:3px;border-radius:0 0 3px 3px;background:var(--harness)}
+.nav .badge{position:absolute;top:9px;left:calc(50% + 7px);width:9px;height:9px;border-radius:50%;background:var(--harness);box-shadow:0 0 0 3px rgba(255,122,89,.25)}
+
+/* ---------- листы ---------- */
+.sheet{position:absolute;inset:0 0 var(--navh) 0;z-index:20;overflow-y:auto;overscroll-behavior:contain;background:linear-gradient(180deg,rgba(5,11,31,.93),rgba(5,11,31,.98));padding-block:calc(14px + var(--topui)) 24px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar))}
+.wrap{width:100%;max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.sh-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.coinpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-weight:700;font-size:14px;background:rgba(9,18,44,.7);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 6px;font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted);line-height:1.45}
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:6px}
+.sec small{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* поход */
+.stagecard{border-radius:22px;border:1px solid var(--rc);background:radial-gradient(120% 90% at 100% 0%,color-mix(in srgb,var(--rc) 22%,transparent),var(--card) 60%);padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 0 40px color-mix(in srgb,var(--rc) 18%,transparent)}
+.stagecard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.stagecard .num{font-family:var(--display);font-weight:800;font-size:44px;line-height:.9;color:var(--rc);font-variant-numeric:tabular-nums}
+.bosstag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0a1430;background:var(--danger);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.haz{display:flex;flex-wrap:wrap;gap:6px}
+.haz span{font-size:11px;font-weight:600;border-radius:7px;padding:3px 7px;background:rgba(238,244,255,.07);color:#d6e0f6}
+.haz span.new{background:rgba(255,93,93,.18);color:#ffb3b3}
+.haz span.ok{background:rgba(126,240,200,.15);color:var(--aurora)}
+.powbar{display:flex;flex-direction:column;gap:6px}
+.powbar .row{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#d6e0f6;font-variant-numeric:tabular-nums}
+.powbar .track{height:10px;border-radius:5px;background:rgba(238,244,255,.08);overflow:hidden;position:relative}
+.powbar .track i{display:block;height:100%;border-radius:5px;background:var(--pc)}
+.powbar .verdict{font-size:13px;font-weight:600;color:var(--pc)}
+.miles{display:grid;gap:8px}
+.mile{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;border-radius:14px;background:var(--card);border:1px solid var(--line);padding:10px 12px}
+.mile .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:14px;color:#0a1430;background:var(--mc)}
+.mile b{font-size:14px;display:block}
+.mile small{font-size:12px;color:var(--muted)}
+.mile .at{font-family:var(--display);font-weight:700;font-size:13px;color:var(--mc);white-space:nowrap}
+
+/* мастерская */
+.upg{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;border-radius:16px;border:1px solid var(--line);background:var(--card);padding:12px}
+.upg .ic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--uc)}
+.upg .ic svg{width:26px;height:26px}
+.upg .body{display:flex;flex-direction:column;gap:6px;min-width:0}
+.upg .nm{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.upg .nm span{font-size:12px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.upg p{font-size:13px;color:#c9d4ee;line-height:1.35}
+.upg .eff{font-size:12px;font-weight:600;color:var(--aurora);font-variant-numeric:tabular-nums}
+.prest{border-radius:20px;border:1px solid rgba(159,208,255,.5);background:radial-gradient(120% 90% at 0% 0%,rgba(159,208,255,.18),var(--card) 65%);padding:16px;display:flex;flex-direction:column;gap:10px}
+.prest .big{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:28px;color:var(--shard);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.prest .big svg{width:28px;height:28px}
+.prest ul{margin:0;padding-left:18px;font-size:13px;color:#c9d4ee;line-height:1.5}
+.confirm{border-radius:14px;background:rgba(255,93,93,.1);border:1px solid rgba(255,93,93,.35);padding:12px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.4}
+.achs{display:grid;gap:6px}
+.ach{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;border-radius:12px;padding:8px 10px;background:rgba(238,244,255,.04)}
+.ach .ck{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(238,244,255,.08)}
+.ach.done .ck{background:var(--gold)}
+.ach b{font-size:13px;display:block}
+.ach small{font-size:12px;color:var(--muted);display:block}
+.ach .bonus{font-size:11px;font-weight:700;color:var(--muted)}
+.ach.done .bonus{color:var(--gold)}
+
+/* ярмарка */
+.trader{border-radius:18px;border:1px solid var(--line);background:var(--card);padding:14px;display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;align-items:start}
+.ava{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:18px;color:#0a1430;background:var(--ac)}
+.trader .body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.trader .who{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.trader .who small{font-size:11px;color:var(--muted)}
+.deal{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.deal img{width:58px;height:auto}
+.deal .arrow{color:var(--muted);font-size:18px}
+.deal .x{font-family:var(--display);font-weight:700;font-size:13px}
+.trader.done{opacity:.5}
+.buffs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.buff{border-radius:16px;border:1px solid var(--line);background:var(--card);padding:12px;display:flex;flex-direction:column;gap:6px}
+.buff svg{width:34px;height:34px}
+.buff b{font-size:14px}
+.buff p{font-size:12px;color:#c9d4ee;line-height:1.35;flex:1}
+.buff .have{font-size:12px;font-weight:600;color:var(--aurora);min-height:38px;display:grid;place-items:center;border:1px dashed rgba(126,240,200,.4);border-radius:11px}
+.soon{border-radius:18px;border:1px dashed rgba(164,140,255,.5);padding:14px;display:flex;flex-direction:column;gap:6px;background:rgba(164,140,255,.07)}
+
+/* породы */
+.dex{display:grid;gap:8px}
+.breed{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;align-items:center;border-radius:16px;border:1px solid var(--line);background:var(--card);padding:8px 12px 8px 8px}
+.breed .th{border-radius:12px;background:radial-gradient(80% 80% at 50% 70%,color-mix(in srgb,var(--rc) 28%,transparent),rgba(5,11,31,.5));aspect-ratio:1;display:grid;place-items:center;overflow:hidden}
+.breed .th img{width:118%;max-width:none}
+.breed.locked .th img{filter:brightness(0) opacity(.55)}
+.breed .nm{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.breed .nm b{font-family:var(--display);font-size:14px}
+.breed .nm span{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--rc)}
+.breed .perk{font-size:12px;color:var(--aurora);font-weight:600;margin-top:3px}
+.breed p{font-size:12px;color:#c9d4ee;line-height:1.35;margin-top:2px}
+.breed .inc{font-size:12px;color:var(--fish);font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+
+/* ---------- забег ---------- */
+.hud{position:absolute;top:0;left:0;right:0;z-index:15;display:flex;flex-direction:column;gap:8px;padding-top:calc(12px + var(--topui));padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));pointer-events:none}
+.hud-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.hud .rn{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--aurora)}
+.hud .dist{font-family:var(--display);font-weight:800;font-size:28px;line-height:1.05;font-variant-numeric:tabular-nums;text-shadow:0 2px 18px rgba(5,11,31,.6)}
+.hud .dist small{font-size:14px;font-weight:500;color:var(--muted)}
+.hud-r{display:flex;gap:8px;align-items:center}
+.fishc{display:flex;align-items:center;gap:6px;font-family:var(--display);font-weight:700;font-size:16px;background:rgba(9,18,44,.6);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 6px;font-variant-numeric:tabular-nums}
+.iconbtn{pointer-events:auto;width:40px;height:40px;border-radius:12px;background:rgba(9,18,44,.6);border:1px solid var(--line);display:grid;place-items:center}
+.meters{display:grid;gap:6px;max-width:460px}
+.meter{display:grid;grid-template-columns:62px minmax(0,1fr) 50px;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#d6e0f6}
+.meter .track{height:8px;border-radius:4px;background:rgba(9,18,44,.6);overflow:hidden;border:1px solid var(--line)}
+.meter .track i{display:block;height:100%;border-radius:4px;background:var(--mc)}
+.meter span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.meter.danger{color:#ffb3b3}
+.pows{display:flex;gap:6px;flex-wrap:wrap}
+.pow{position:relative;overflow:hidden;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:8px;padding:4px 8px 6px;background:rgba(9,18,44,.7);border:1px solid var(--pc);color:var(--pc)}
+.pow i{position:absolute;left:0;bottom:0;height:2px;background:var(--pc)}
+.tap-hint{position:absolute;left:50%;bottom:20%;transform:translateX(-50%);z-index:14;pointer-events:none;font-weight:600;color:#26355f;background:rgba(238,244,255,.88);border-radius:999px;padding:8px 14px;white-space:nowrap}
+
+/* ---------- окна ---------- */
+.modal{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(3,7,20,.84);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding-block:calc(16px + var(--topui)) 16px;padding-left:max(16px,var(--sal));padding-right:max(16px,var(--sar));overflow-y:auto}
+.panel{width:100%;max-width:380px;max-height:100%;overflow-y:auto;background:var(--panel);border:1px solid rgba(126,240,200,.22);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 60px rgba(2,6,20,.6)}
+.reveal{align-items:center;text-align:center;background:radial-gradient(100% 60% at 50% 30%,color-mix(in srgb,var(--rc) 32%,transparent),var(--panel) 72%);border-color:var(--rc);box-shadow:0 0 70px color-mix(in srgb,var(--rc) 35%,transparent)}
+.reveal img{width:220px;max-width:100%;height:auto;animation:pop .7s cubic-bezier(.2,1.5,.4,1)}
+.pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:4px 10px;background:rgba(238,244,255,.08);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pill.perk{color:var(--aurora);border-color:rgba(126,240,200,.4)}
+.btns{display:grid;gap:10px;width:100%}
+.btns.two{grid-template-columns:1fr 1fr}
+.big-num{font-family:var(--display);font-weight:800;font-size:clamp(26px,8vw,36px);display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums}
+.big-num svg{width:32px;height:32px}
+.lineup{display:grid;gap:8px}
+.lu{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;border-radius:14px;background:rgba(238,244,255,.05);padding:6px 10px 6px 6px}
+.lu img{width:52px;height:auto}
+.lu b{font-size:13px;display:block}
+.lu small{font-size:12px;color:var(--aurora);display:block;line-height:1.3}
+.lu.empty{border:1.5px dashed var(--line);background:none;min-height:44px;font-size:12px;color:var(--muted);grid-template-columns:1fr;text-align:center}
+.kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:6px 12px;font-size:13px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.loot{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.loot div{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;border-radius:12px;background:rgba(238,244,255,.06);padding:6px 8px;min-width:72px;text-align:center}
+.loot img{width:60px;height:auto}
+.loot .sh{color:var(--shard);padding:10px 0 4px}
+.tip{font-size:13px;line-height:1.4;background:rgba(255,201,74,.1);border:1px solid rgba(255,201,74,.3);color:#f3e2b8;border-radius:12px;padding:10px 12px;text-align:left}
+.unlock{font-size:13px;font-weight:600;color:var(--aurora);background:rgba(126,240,200,.1);border:1px solid rgba(126,240,200,.3);border-radius:12px;padding:8px 12px}
+
+.toast{position:absolute;z-index:60;left:0;right:0;margin-inline:auto;top:calc(12px + var(--topui));width:fit-content;max-width:calc(100% - 32px);background:var(--snow);color:var(--night);font-weight:600;border-radius:16px;padding:10px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center;line-height:1.3}
+.toast.ach{background:var(--gold);color:#2a1a00}
+
+@media (prefers-reduced-motion:reduce){.dog,.crate{animation:none}.pop .dog,.hop .dog,.reveal img{animation:none}button{transition:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffb24d"/><circle cx="12" cy="12" r="8.6" fill="#ff9f6b" stroke="#ffd59a" stroke-width="1"/><path d="M6.5 12c2.6-3.6 6.8-3.6 9 0-2.2 3.6-6.4 3.6-9 0z" fill="#2a0f05"/><path d="M15 12l3.2-2.4v4.8z" fill="#2a0f05"/></symbol>
+    <symbol id="i-shard" viewBox="0 0 24 24"><path d="M12 1.5l6 7.5-6 13.5L6 9z" fill="#9fd0ff"/><path d="M12 1.5l6 7.5H6z" fill="#e2f3ff"/><path d="M12 22.5L6 9h12z" fill="#6fb0e8" opacity=".6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" stroke="#2a1a00" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-crate" viewBox="0 0 80 72">
+      <ellipse cx="40" cy="66" rx="30" ry="5" fill="rgba(20,30,70,.3)"/>
+      <rect x="8" y="22" width="64" height="42" rx="6" fill="#a8693d"/>
+      <rect x="8" y="22" width="64" height="42" rx="6" fill="none" stroke="#7a4524" stroke-width="3"/>
+      <path d="M8 36h64M8 50h64" stroke="#8d5530" stroke-width="2"/>
+      <rect x="34" y="18" width="12" height="46" fill="#ff7a59"/>
+      <path d="M6 22c0-6 4-10 10-10h48c6 0 10 4 10 10v4H6z" fill="#f4f8ff"/>
+      <path d="M40 18c-6-10-18-10-15-3s15 3 15 3zm0 0c6-10 18-10 15-3s-15 3-15 3z" fill="#ffc94a"/>
+    </symbol>
+    <symbol id="i-kennel" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 21v-5a3 3 0 0 1 6 0v5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M3 20l5-14 4 8 3-5 6 11z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.5 5.5a4 4 0 0 0 4.9 4.9l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 0-1.9-1.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3.5l2.2 2.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-fair" viewBox="0 0 24 24"><path d="M4 9h16l-1.5-5h-13zM5 9v11h14V9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><ellipse cx="12" cy="15.5" rx="4.5" ry="3.8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="10" r="2" fill="currentColor"/><circle cx="10" cy="6.5" r="2" fill="currentColor"/><circle cx="14" cy="6.5" r="2" fill="currentColor"/><circle cx="18" cy="10" r="2" fill="currentColor"/></symbol>
+    <symbol id="i-oil" viewBox="0 0 36 36"><path d="M13 6h10v5l3 4v15a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V15l3-4z" fill="#ffc94a"/><rect x="12" y="17" width="12" height="9" rx="2" fill="#fff3c4"/><path d="M15 21.5c1.5-2 4-2 5.5 0-1.5 2-4 2-5.5 0z" fill="#ff7a59"/></symbol>
+    <symbol id="i-blanket" viewBox="0 0 36 36"><path d="M6 10h24v16c-4 2-8-2-12 0s-8 2-12 0z" fill="#4aa3ff"/><path d="M6 15h24M6 20h24" stroke="#bfe0ff" stroke-width="2" stroke-dasharray="3 3"/></symbol>
+    <symbol id="i-flare" viewBox="0 0 36 36"><rect x="15" y="14" width="6" height="16" rx="2" fill="#ff5d7a"/><path d="M18 3c3 4 4 7 0 11-4-4-3-7 0-11z" fill="#ffc94a"/></symbol>
+    <symbol id="i-lantern" viewBox="0 0 36 36"><path d="M14 6h8l2 4H12z" fill="#7d8cab"/><rect x="11" y="10" width="14" height="18" rx="3" fill="#2a3a6e"/><circle cx="18" cy="19" r="5" fill="#ffd56b"/><circle cx="18" cy="19" r="9" fill="rgba(255,213,107,.25)"/></symbol>
+    <symbol id="u-feed" viewBox="0 0 26 26"><path d="M3 13h20l-2 7H5z" fill="#0a1430"/><circle cx="9" cy="11" r="2.5" fill="#0a1430"/><circle cx="14" cy="10" r="2.5" fill="#0a1430"/><circle cx="18" cy="12" r="2" fill="#0a1430"/></symbol>
+    <symbol id="u-net" viewBox="0 0 26 26"><path d="M4 5h18l-3 16H7z" fill="none" stroke="#0a1430" stroke-width="2"/><path d="M6 10h14M7 15h12M10 5l2 16M16 5l-2 16" stroke="#0a1430" stroke-width="1.5"/></symbol>
+    <symbol id="u-crate" viewBox="0 0 26 26"><rect x="3" y="8" width="20" height="14" rx="2" fill="#0a1430"/><path d="M2 8h22v4H2z" fill="#0a1430" opacity=".6"/><rect x="11" y="6" width="4" height="16" fill="#eef4ff" opacity=".6"/></symbol>
+    <symbol id="u-gap" viewBox="0 0 26 26"><path d="M3 18h8M3 13h12M3 8h16" stroke="#0a1430" stroke-width="2.4" stroke-linecap="round"/><path d="M19 6l5 7-5 7" fill="none" stroke="#0a1430" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="u-brake" viewBox="0 0 26 26"><path d="M13 3l9 4v6c0 6-4 9-9 10-5-1-9-4-9-10V7z" fill="#0a1430"/><path d="M9 13h8" stroke="#eef4ff" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="u-house" viewBox="0 0 26 26"><path d="M3 12l10-8 10 8v10H3z" fill="#0a1430"/><path d="M10 22v-5a3 3 0 0 1 6 0v5" fill="#eef4ff" opacity=".6"/></symbol>
+    <symbol id="u-slots" viewBox="0 0 26 26"><rect x="3" y="3" width="8" height="8" rx="2" fill="#0a1430"/><rect x="15" y="3" width="8" height="8" rx="2" fill="#0a1430"/><rect x="3" y="15" width="8" height="8" rx="2" fill="#0a1430"/><path d="M19 15v8M15 19h8" stroke="#0a1430" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="u-whistle" viewBox="0 0 26 26"><circle cx="15" cy="15" r="7" fill="#0a1430"/><rect x="2" y="9" width="12" height="5" rx="2" fill="#0a1430"/><circle cx="15" cy="15" r="2.5" fill="#eef4ff" opacity=".6"/></symbol>
+  </defs>
+</svg>
+
+<div id="app">
+  <canvas id="bg" aria-label="Ночная тундра"></canvas>
+
+  <!-- ===== Питомник ===== -->
+  <div id="kennel">
+    <div class="header">
+      <div class="bal">
+        <span class="eyebrow" id="hdrEye">Хаски: Зов Севера</span>
+        <div class="bal-row"><svg><use href="#i-coin"/></svg><span class="bal-num" id="balance">0</span></div>
+        <div class="ips"><span><b id="ips">0</b> FISH/сек</span><span class="boost" id="boost" hidden>×2</span></div>
+      </div>
+      <div class="hside">
+        <button class="hbtn" id="bInvite" type="button"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M14 2L2 7l4.5 1.8L8.2 14 14 2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Позвать</button>
+        <span class="shards" id="hdrShards" hidden><svg><use href="#i-shard"/></svg><span id="hdrShardN">0</span></span>
+      </div>
+    </div>
+    <div class="sky"></div>
+    <div class="mid">
+      <button class="team" id="teamBtn" type="button">
+        <span class="dogs" id="teamDogs"></span>
+        <span><b id="teamTitle">Упряжка · этап 1</b><small id="teamPerks">Ведут три самых сильных хаски</small></span>
+        <span class="pw"><span id="teamPow">0</span><small id="teamReq">из 5</small></span>
+      </button>
+      <div class="status">
+        <span class="hint" id="hint">Перетащи хаски на такого же, чтобы вывести новую породу</span>
+        <span class="chip-row">
+          <span class="chip inbox" id="inboxChip" hidden></span>
+          <span class="chip" id="crateChip"><i></i><span id="crateTxt">Ящик через 15 с</span></span>
+        </span>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="buybar">
+      <button class="primary buy" id="bBuy" type="button">
+        <img id="buyImg" alt="">
+        <span class="bl"><span id="buyLvl">Щенок · ур. 1</span>Купить щенка</span>
+        <span class="price"><svg class="coin-ic"><use href="#i-coin"/></svg><span id="buyPrice">30</span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== Поход ===== -->
+  <section class="sheet" id="sMap" hidden>
+    <div class="wrap" id="mapWrap"></div>
+  </section>
+
+  <!-- ===== Мастерская ===== -->
+  <section class="sheet" id="sShop" hidden>
+    <div class="wrap">
+      <div class="sh-head"><div><span class="eyebrow">Мастерская</span><h2>Улучшения</h2></div><span class="coinpill"><svg class="coin-ic"><use href="#i-coin"/></svg><span class="bal2">0</span></span></div>
+      <p class="note">У большинства улучшений нет потолка. Каждый уровень дороже предыдущего, а работают они до следующего великого похода.</p>
+      <div class="wrap" id="upgList" style="gap:8px"></div>
+      <div class="prest" id="prestCard"></div>
+      <div class="sec"><h3>Достижения</h3><small id="achSum">0 из 0</small></div>
+      <p class="note" style="margin-top:-8px">Каждое достижение навсегда добавляет +3% к доходу и не сгорает при великом походе.</p>
+      <div class="achs" id="achList"></div>
+    </div>
+  </section>
+
+  <!-- ===== Ярмарка ===== -->
+  <section class="sheet" id="sFair" hidden>
+    <div class="wrap">
+      <div class="sh-head"><div><span class="eyebrow">Ярмарка</span><h2>Торговцы Севера</h2></div><span class="coinpill"><svg class="coin-ic"><use href="#i-coin"/></svg><span class="bal2">0</span></span></div>
+      <p class="note" id="fairTimer">Новые предложения через 10:00</p>
+      <div class="wrap" id="traders" style="gap:10px"></div>
+      <h3>Снаряжение в дорогу</h3>
+      <p class="note" style="margin-top:-8px">Берётся с собой в следующий поход и тратится в нём.</p>
+      <div class="buffs" id="buffs"></div>
+      <div class="soon">
+        <span class="eyebrow" style="color:var(--violet)">Скоро</span>
+        <h3>Обмен хаски с друзьями</h3>
+        <p class="note">Предложи своего хаски другу из Telegram и получи его породу взамен. Для этого игре нужен сервер, его подключим в боевой версии.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Породы ===== -->
+  <section class="sheet" id="sDex" hidden>
+    <div class="wrap">
+      <div class="sh-head"><div><span class="eyebrow">Коллекция</span><h2>Породы Севера</h2></div><span class="pill" id="dexCount">1</span></div>
+      <p class="note">После 16-й породы начинаются звёздные формы Легенды Севера. Их бесконечно много, и каждая ловит в 2,3 раза больше предыдущей.</p>
+      <div class="dex" id="dexList"></div>
+    </div>
+  </section>
+
+  <nav class="nav" id="nav">
+    <button type="button" data-tab="kennel" aria-current="page"><svg><use href="#i-kennel"/></svg>Питомник</button>
+    <button type="button" data-tab="map"><svg><use href="#i-map"/></svg>Поход<span class="badge" id="mapBadge" hidden></span></button>
+    <button type="button" data-tab="shop"><svg><use href="#i-tools"/></svg>Мастерская<span class="badge" id="shopBadge" hidden></span></button>
+    <button type="button" data-tab="fair"><svg><use href="#i-fair"/></svg>Ярмарка</button>
+    <button type="button" data-tab="dex"><svg><use href="#i-book"/></svg>Породы</button>
+  </nav>
+
+  <!-- ===== HUD забега ===== -->
+  <div class="hud" id="hud" hidden>
+    <div class="hud-top">
+      <div><div class="rn" id="hRegion">Этап 1</div><div class="dist"><span id="hDist">0</span><small id="hGoal"> / 500 м</small></div></div>
+      <div class="hud-r"><span class="fishc"><svg class="coin-ic"><use href="#i-coin"/></svg><span id="hFish">0</span></span><button class="iconbtn" id="bPause" type="button" aria-label="Пауза"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="1" width="3.5" height="12" rx="1.2" fill="currentColor"/><rect x="8.5" y="1" width="3.5" height="12" rx="1.2" fill="currentColor"/></svg></button></div>
+    </div>
+    <div class="meters">
+      <div class="meter" style="--mc:linear-gradient(90deg,var(--aurora),var(--violet))"><span>Путь</span><span class="track"><i id="hProg"></i></span><span id="hProgT">0%</span></div>
+      <div class="meter" id="mGap" style="--mc:#9fd0ff"><span>Лавина</span><span class="track"><i id="hGap"></i></span><span id="hGapT">45 м</span></div>
+    </div>
+    <div class="pows" id="hPows"></div>
+  </div>
+  <div class="tap-hint" id="tapHint" hidden>Тап — прыжок, держи дольше — выше</div>
+
+  <canvas id="fx"></canvas>
+
+  <!-- ===== Окна ===== -->
+  <div class="modal" id="mReveal" hidden>
+    <div class="panel reveal" id="revealPanel">
+      <span class="eyebrow">Новая порода</span>
+      <img id="rvImg" alt="">
+      <h2 id="rvName"></h2>
+      <div class="pills"><span class="pill" id="rvLvl"></span><span class="pill" id="rvInc"></span></div>
+      <span class="pill perk" id="rvPerk"></span>
+      <p class="muted" id="rvText" style="max-width:30ch"></p>
+      <div class="btns two"><button class="ghost" id="rvShare" type="button">Похвастаться</button><button class="primary" id="rvOk" type="button">Круто!</button></div>
+    </div>
+  </div>
+
+  <div class="modal" id="mAway" hidden>
+    <div class="panel">
+      <span class="eyebrow">С возвращением</span>
+      <h2 id="awayTitle"></h2>
+      <p class="muted">Упряжка не сидела без дела и наловила рыбы:</p>
+      <div class="big-num"><svg><use href="#i-coin"/></svg><span id="awaySum">0</span></div>
+      <p class="note" id="awayNote">Улов копится до 3 часов.</p>
+      <button class="primary" id="awayOk" type="button">Забрать улов</button>
+    </div>
+  </div>
+
+  <div class="modal" id="mPre" hidden>
+    <div class="panel">
+      <div><span class="eyebrow" id="preEye">Этап 1</span><h2 id="preName">Опушка</h2></div>
+      <div class="haz" id="preHaz"></div>
+      <h3>Упряжка</h3>
+      <div class="lineup" id="preTeam"></div>
+      <div class="kv" id="preKv"></div>
+      <div class="haz" id="preBuffs"></div>
+      <div class="btns two"><button class="ghost" id="preCancel" type="button">Назад</button><button class="primary" id="preGo" type="button">В путь</button></div>
+    </div>
+  </div>
+
+  <div class="modal" id="mPause" hidden>
+    <div class="panel">
+      <span class="eyebrow">Пауза</span><h2>Лавина ждёт</h2>
+      <div class="btns"><button class="primary" id="bResume" type="button">Продолжить</button><button class="ghost" id="bQuit" type="button">Сдаться и вернуться</button></div>
+    </div>
+  </div>
+
+  <div class="modal" id="mResult" hidden>
+    <div class="panel" style="text-align:center;align-items:center">
+      <span class="eyebrow" id="resEye">Этап 1</span>
+      <h2 id="resTitle">Этап пройден!</h2>
+      <p class="muted" id="resSub"></p>
+      <div class="big-num"><svg><use href="#i-coin"/></svg><span id="resFish">+0</span></div>
+      <div class="loot" id="resLoot"></div>
+      <div class="unlock" id="resUnlock" hidden></div>
+      <div class="tip" id="resTip" hidden></div>
+      <div class="btns">
+        <button class="primary" id="resNext" type="button">Дальше</button>
+        <div class="btns two"><button class="ghost" id="resAgain" type="button">Ещё раз</button><button class="ghost" id="resOk" type="button">В питомник</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden role="status"></div>
+</div>
+
+<script>
+(() => {
+  // ================= Настройки =================
+  const CFG = {
+    BOT_LINK: '',        // ссылка на мини-приложение, например 'https://t.me/hasky_north_bot/play'
+    API: null,           // бэкенд из server/: null — нет, '' — тот же origin, 'https://host' — отдельный
+    FULLSCREEN: true,    // разворачивать игру на весь экран в мобильном Telegram (Bot API 8.0+)
+    CLOUD_SAVE: true     // резервная копия в Telegram CloudStorage, когда бэкенда нет
+  };
+  const tg = (window.Telegram && window.Telegram.WebApp) || null;
+  const atLeast = v => { try { return !!(tg && tg.isVersionAtLeast && tg.isVersionAtLeast(v)); } catch (e) { return false; } };
+  const mobileTg = !!tg && (tg.platform === 'android' || tg.platform === 'ios');
+
+  // ================= Адаптация под Telegram =================
+  const rootEl = document.documentElement;
+  const setVar = (n, v) => rootEl.style.setProperty(n, v);
+  const px = v => (typeof v === 'number' && isFinite(v) ? Math.max(0, Math.round(v)) : 0) + 'px';
+
+  function applyViewport() {
+    // В WebView Telegram 100vh/100% больше видимой области, поэтому берём высоту у WebApp.
+    const h = (tg && (tg.viewportStableHeight || tg.viewportHeight)) || window.innerHeight;
+    if (h > 0) setVar('--vh', Math.round(h) + 'px');
+  }
+  function applyInsets() {
+    if (!atLeast('8.0')) return; // на старых клиентах остаются env(safe-area-inset-*)
+    const sa = tg.safeAreaInset || {}, cs = tg.contentSafeAreaInset || {};
+    setVar('--sat', px(sa.top)); setVar('--sar', px(sa.right));
+    setVar('--sab', px(sa.bottom)); setVar('--sal', px(sa.left));
+    // над контентом в полноэкранном режиме висит шапка Telegram с кнопками
+    setVar('--topui', px((sa.top || 0) + (cs.top || 0)));
+  }
+  function relayout() { applyViewport(); applyInsets(); try { resize(); } catch (e) {} }
+  // во время забега случайный свайп вниз не должен выкидывать из игры без вопроса
+  function closeGuard(on) {
+    if (!tg || !atLeast('6.2')) return;
+    try { on ? tg.enableClosingConfirmation && tg.enableClosingConfirmation() : tg.disableClosingConfirmation && tg.disableClosingConfirmation(); } catch (e) {}
+  }
+
+  if (tg) {
+    try {
+      tg.ready(); tg.expand();
+      tg.setHeaderColor && tg.setHeaderColor('#0a1430');
+      tg.setBackgroundColor && tg.setBackgroundColor('#0a1430');
+      atLeast('7.10') && tg.setBottomBarColor && tg.setBottomBarColor('#060c20');
+      tg.disableVerticalSwipes && tg.disableVerticalSwipes();   // свайп вниз не закрывает игру
+      if (CFG.FULLSCREEN && mobileTg && atLeast('8.0') && tg.requestFullscreen && !tg.isFullscreen) tg.requestFullscreen();
+      if (mobileTg && atLeast('8.0') && tg.lockOrientation) tg.lockOrientation();
+    } catch (e) {}
+    ['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged', 'fullscreenChanged', 'orientationChanged'].forEach(ev => {
+      try { tg.onEvent(ev, relayout); } catch (e) {}
+    });
+    try { tg.onEvent('fullscreenFailed', () => {}); } catch (e) {}
+  }
+  applyViewport(); applyInsets();
+
+  // Телеграмный WebView — это браузер: гасим зум, выделение и системное меню.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+  document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  function haptic(k) { try { if (!tg || !tg.HapticFeedback) return; if (k === 'success' || k === 'error') tg.HapticFeedback.notificationOccurred(k); else tg.HapticFeedback.impactOccurred(k); } catch (e) {} }
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const app = $('app');
+
+  // ================= Утилиты =================
+  function hash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+  const rgb = hex => hexA(hex, 1).slice(5, -3);
+  function hsl2hex(h, s, l) {
+    h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+    const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, '0');
+    return '#' + f(0) + f(8) + f(4);
+  }
+  const UNITS = [['нонлн', 1e30], ['октлн', 1e27], ['септлн', 1e24], ['секстлн', 1e21], ['квинтлн', 1e18], ['квадрлн', 1e15], ['трлн', 1e12], ['млрд', 1e9], ['млн', 1e6], ['тыс.', 1e3]];
+  function short(n) {
+    if (!isFinite(n)) return '∞';
+    n = Math.max(0, n);
+    if (n < 10000) return Math.floor(n).toLocaleString('ru-RU');
+    if (n >= 1e33) return n.toExponential(2).replace('.', ',').replace('e+', 'e');
+    for (const [s, v] of UNITS) if (n >= v) {
+      const x = n / v; let str = x >= 100 ? String(Math.floor(x)) : x >= 10 ? x.toFixed(1) : x.toFixed(2);
+      if (str.includes('.')) str = str.replace(/\.?0+$/, '');
+      return str.replace('.', ',') + ' ' + s;
+    }
+  }
+  const fmtIps = v => v < 10 ? v.toFixed(1).replace('.', ',') : short(v);
+  const fmtTime = s => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} ч ${m} мин` : `${m} мин`; };
+
+  // ================= Породы =================
+  const BASE = { body: '#8796b5', belly: '#f1f5ff', dark: '#6f7e9e', far: '#64728f', near: '#dfe6f5', harness: '#ff7a59' };
+  const B = [null,
+    { name: 'Щенок', scale: .72, ...BASE, harness: null, perk: 'fish', text: 'Пушистый комок. Пока больше спит, чем ловит.' },
+    { name: 'Ездовой', scale: .8, ...BASE, perk: 'start', text: 'Надел первую шлейку и рвётся в упряжку.' },
+    { name: 'Полярный', scale: .84, body: '#e3eaf7', belly: '#ffffff', dark: '#bccadf', far: '#aebcd4', near: '#ffffff', harness: '#4aa3ff', perk: 'tough', text: 'Белый, как свежий снег. Не боится сугробов.' },
+    { name: 'Рыжий', scale: .88, body: '#c27a4a', belly: '#fbeee2', dark: '#9c5a32', far: '#8a4e2c', near: '#f3dcc8', harness: '#2a3350', acc: 'scarf', perk: 'magnet', text: 'Чует рыбу за километр. Никогда не снимает шарф.' },
+    { name: 'Вожак', scale: .92, body: '#5d6886', belly: '#e9eefb', dark: '#3f4862', far: '#384058', near: '#c9d2e6', harness: '#ffc94a', perk: 'speed', text: 'Ведёт упряжку и знает дорогу в любую пургу.' },
+    { name: 'Полночь', scale: .94, body: '#2d3250', belly: '#c9d0e6', dark: '#1c1f33', far: '#1c1f33', near: '#9aa3c0', harness: '#a48cff', eye: '#7ef0c8', glowEye: true, perk: 'night', text: 'Глаза светятся в полярной ночи.' },
+    { name: 'Ледяной', scale: .96, body: '#a9d6ff', belly: '#f2fbff', dark: '#6fb0e8', far: '#5d9ed6', near: '#e2f3ff', harness: '#2d6fb3', glow: '#7fd0ff', perk: 'ice', text: 'Где он ступает, вода замерзает.' },
+    { name: 'Неон', scale: .98, body: '#2a1f5c', belly: '#7ef0c8', dark: '#a48cff', far: '#1d1545', near: '#5fd8b0', harness: '#ff4fd8', glow: '#ff4fd8', acc: 'phones', perk: 'jump3', text: 'Слушает техно и прыгает выше всех.' },
+    { name: 'Северный дух', scale: 1, body: '#cfe3ff', belly: '#ffffff', dark: '#a9c6ee', far: '#9db8e0', near: '#e8f2ff', harness: '#9fd0ff', alpha: .66, glow: '#9fd0ff', eye: '#3a5a8a', perk: 'revive', text: 'Говорят, он однажды остановил лавину.' },
+    { name: 'Космонавт', scale: 1, body: '#3b2a6e', belly: '#e7dcff', dark: '#2a1c55', far: '#221747', near: '#cbb8ff', harness: '#ffcf5a', stars: true, acc: 'helmet', perk: 'float', text: 'Тренировался в невесомости.' },
+    { name: 'Золотой', scale: 1, body: '#e2b33c', belly: '#fff3c4', dark: '#b88a1f', far: '#9e7414', near: '#ffe9a3', harness: '#8b1d2c', glow: '#ffc94a', acc: 'crown', perk: 'gold', text: 'Королевская кровь. Рыба сама прыгает в лапы.' },
+    { name: 'Страж', scale: 1, body: '#7d8cab', belly: '#f1f5ff', dark: '#4a5878', far: '#3e4a66', near: '#dfe6f5', harness: '#4aa3ff', glow: '#4aa3ff', acc: 'goggles', perk: 'shield', text: 'Выходит в путь в тёплой броне.' },
+    { name: 'Буран', scale: 1, body: '#dfe8f5', belly: '#ffffff', dark: '#8fa3c4', far: '#7d91b3', near: '#f4f8ff', harness: '#5cc8ff', glow: '#cfe6ff', acc: 'goggles', perk: 'speed2', text: 'Бежит быстрее метели.' },
+    { name: 'Шаман', scale: 1, body: '#4a3a5e', belly: '#e9dcc8', dark: '#2f2440', far: '#2a2038', near: '#cbb89a', harness: '#d0603a', glow: '#ff9f6b', acc: 'feather', perk: 'luck', text: 'Знает, где спрятаны лучшие сундуки.' },
+    { name: 'Звёздный', scale: 1, body: '#1b2350', belly: '#9fb6ff', dark: '#0f1535', far: '#0e1430', near: '#7f95e6', harness: '#ffd54a', stars: true, glow: '#9fb6ff', acc: 'halo', perk: 'magnet2', text: 'Рыба тянется к нему, как к звезде.' },
+    { name: 'Легенда Севера', scale: 1, body: '#7ef0c8', belly: '#f4fffb', dark: '#a48cff', far: '#5fcfae', near: '#e6fff7', harness: '#ff7a59', glow: '#a48cff', acc: 'crown', stars: true, perk: 'king', text: 'Сама северная ночь в шкуре хаски.' }
+  ];
+  const bcache = {};
+  function breed(L) {
+    if (L <= 16) return B[L];
+    if (bcache[L]) return bcache[L];
+    const k = L - 16, h = k * 47 + 150;
+    return (bcache[L] = {
+      name: `Легенда ★${k}`, scale: 1, body: hsl2hex(h, 62, 66), belly: hsl2hex(h, 80, 95), dark: hsl2hex(h + 50, 55, 42),
+      far: hsl2hex(h, 45, 48), near: hsl2hex(h, 70, 88), harness: hsl2hex(h + 180, 85, 62), glow: hsl2hex(h + 30, 90, 65),
+      acc: k % 3 === 0 ? 'halo' : 'crown', stars: true, perk: 'star', text: `Звёздная форма №${k}. Каждая следующая ярче и сильнее.`
+    });
+  }
+  const TIER = L => L >= 17 ? { col: '#ff9fd8', name: 'Звёздная' } : L >= 13 ? { col: '#7ef0c8', name: 'Мифическая' } : L >= 10 ? { col: '#ffc94a', name: 'Легендарная' } : L >= 7 ? { col: '#b07bff', name: 'Эпическая' } : L >= 4 ? { col: '#4aa3ff', name: 'Редкая' } : { col: '#b9c6e0', name: 'Обычная' };
+  const PERK = {
+    fish: '+10% рыбы в походе', start: 'Старт на 10 м дальше от лавины', tough: 'Спотыкается на 30% короче',
+    magnet: 'Магнит первые 12 секунд', speed: 'Лавина на 3% медленнее', night: 'Видит дальше в пурге, +10% рыбы',
+    ice: 'Полыньи замерзают под лапами', jump3: 'Третий прыжок в воздухе', revive: 'Один раз спасает от лавины',
+    float: 'Прыгает выше и плавнее', gold: '+30% рыбы', shield: 'Начинает поход со щитом', speed2: 'Лавина на 6% медленнее',
+    luck: '+1 щенок в каждом сундуке', magnet2: 'Магнит на весь поход', king: 'Щит каждые 20 секунд, +50% рыбы',
+    star: '+3 к силе упряжки'
+  };
+  const inc = L => Math.pow(2.3, L - 1);
+  const value = L => 30 * Math.pow(2.15, L - 1);
+
+  // ================= Этапы =================
+  const BIOMES = [
+    { name: 'Опушка', col: '#7ef0c8' }, { name: 'Замёрзшее озеро', col: '#7fd0ff' }, { name: 'Волчий ельник', col: '#a48cff' },
+    { name: 'Перевал', col: '#ffc94a' }, { name: 'Пурга', col: '#cfe6ff' }, { name: 'Долина сияния', col: '#ff9fd8' }
+  ];
+  const HAZ = { drift: 'Сугробы', log: 'Брёвна', ice: 'Полыньи', branch: 'Ветки', wolf: 'Волки', rock: 'Глыбы', storm: 'Пурга', giant: 'Ледяной великан' };
+  function stageInfo(n) {
+    const boss = n % 10 === 0, bi = BIOMES[(n - 1) % 6];
+    const haz = ['drift', 'log'];
+    if (n >= 3) haz.push('ice'); if (n >= 5) haz.push('branch'); if (n >= 7) haz.push('wolf'); if (n >= 9) haz.push('rock');
+    if ((n - 1) % 6 === 4 && n >= 5) haz.push('storm');
+    if (boss) haz.push('giant');
+    return {
+      n, boss, name: boss ? 'Ледяной великан' : bi.name, col: boss ? '#ff5d5d' : bi.col, haz,
+      goal: Math.round(Math.min(1500, 380 + 34 * n) * (boss ? 1.25 : 1) / 10) * 10,
+      base: 330 + Math.min(170, n * 3), req: Math.max(1, Math.round(n * 1.65 - 1)) + (boss ? 3 : 0)
+    };
+  }
+  const capFor = cl => 5 + Math.floor(cl / 2);
+  const stageForCap = L => Math.max(0, 2 * (L - 5));
+
+  // ================= Мастерская =================
+  const crateEvery = l => Math.max(4, Math.round((15 - l * .5) * 10) / 10);
+  const UPG = [
+    { id: 'feed', name: 'Сытный корм', icon: 'u-feed', col: '#ffc94a', text: 'Весь питомник ловит больше рыбы.', base: 150, g: 2.2, max: Infinity, eff: l => `доход ×${Math.pow(1.15, l).toFixed(2).replace('.', ',')}` },
+    { id: 'whistle', name: 'Свисток каюра', icon: 'u-whistle', col: '#ff9f6b', text: 'Упряжка становится сильнее.', base: 400, g: 2.6, max: Infinity, eff: l => `+${l * 2} к силе` },
+    { id: 'net', name: 'Большие сети', icon: 'u-net', col: '#7ef0c8', text: 'Больше рыбы с каждого похода.', base: 120, g: 2.1, max: Infinity, eff: l => `+${l * 20}% рыбы в походе` },
+    { id: 'crate', name: 'Щедрые ящики', icon: 'u-crate', col: '#ff7a59', text: 'Ящики приходят чаще, а щенки в них старше.', base: 200, g: 2.3, max: Infinity, eff: l => `раз в ${String(crateEvery(l)).replace('.', ',')} с · +${Math.floor(l / 4)} ур.` },
+    { id: 'gap', name: 'Быстрый старт', icon: 'u-gap', col: '#4aa3ff', text: 'Больше отрыв от лавины на старте.', base: 100, g: 2.0, max: 30, eff: l => `+${l * 3} м отрыва` },
+    { id: 'brake', name: 'Снежные щиты', icon: 'u-brake', col: '#9fd0ff', text: 'Лавина движется медленнее.', base: 250, g: 2.25, max: 35, eff: l => `лавина −${(l * .4).toFixed(1).replace('.', ',')}%` },
+    { id: 'house', name: 'Тёплая будка', icon: 'u-house', col: '#b07bff', text: 'Упряжка дольше ловит рыбу, пока тебя нет.', base: 300, g: 3, max: 9, eff: l => `офлайн до ${3 + l} ч` },
+    { id: 'slots', name: 'Новые вольеры', icon: 'u-slots', col: '#ff9fd8', text: 'Больше мест в питомнике.', base: 500, g: 3.2, max: 12, eff: l => `${12 + l} мест` }
+  ];
+
+  // ================= Достижения =================
+  const ACH = [
+    ['m1', 'Первое слияние', 'Объедини двух хаски', s => s.stats.merges >= 1],
+    ['m100', 'Заводчик', 'Сделай 100 слияний', s => s.stats.merges >= 100],
+    ['m1000', 'Мастер породы', 'Сделай 1000 слияний', s => s.stats.merges >= 1000],
+    ['l8', 'Эпическая кровь', 'Выведи хаски ур. 8', s => s.maxEver >= 8],
+    ['l12', 'Легендарная кровь', 'Выведи хаски ур. 12', s => s.maxEver >= 12],
+    ['l16', 'Легенда Севера', 'Выведи хаски ур. 16', s => s.maxEver >= 16],
+    ['l20', 'Звёздный путь', 'Выведи Легенду ★4', s => s.maxEver >= 20],
+    ['l30', 'Созвездие', 'Выведи Легенду ★14', s => s.maxEver >= 30],
+    ['s5', 'Первые шаги', 'Пройди этап 5', s => s.bestStage >= 5],
+    ['s10', 'Победитель великана', 'Пройди этап 10', s => s.bestStage >= 10],
+    ['s25', 'Глубокий Север', 'Пройди этап 25', s => s.bestStage >= 25],
+    ['s50', 'Край карты', 'Пройди этап 50', s => s.bestStage >= 50],
+    ['s100', 'Сотый рубеж', 'Пройди этап 100', s => s.bestStage >= 100],
+    ['w50', 'Волчья тропа', 'Увернись от 50 волков', s => s.stats.wolves >= 50],
+    ['c100', 'Ящик за ящиком', 'Открой 100 ящиков', s => s.stats.crates >= 100],
+    ['t10', 'Торговец', 'Заключи 10 сделок на ярмарке', s => s.stats.trades >= 10],
+    ['u25', 'Мастеровой', 'Купи 25 улучшений', s => s.stats.upgrades >= 25],
+    ['u200', 'Инженер Севера', 'Купи 200 улучшений', s => s.stats.upgrades >= 200],
+    ['r100', 'Сто походов', 'Сходи в 100 походов', s => s.stats.runs >= 100],
+    ['p1', 'Великий поход', 'Соверши первое перерождение', s => s.prestiges >= 1],
+    ['p5', 'Вечный каюр', 'Соверши 5 перерождений', s => s.prestiges >= 5],
+    ['f6', 'Рыбный магнат', 'Заработай 1 млн FISH за всё время', s => s.stats.life >= 1e6],
+    ['f9', 'Рыбная империя', 'Заработай 1 млрд FISH', s => s.stats.life >= 1e9],
+    ['f12', 'Океан рыбы', 'Заработай 1 трлн FISH', s => s.stats.life >= 1e12],
+    ['f18', 'Рыбная вселенная', 'Заработай 1 квинтлн FISH', s => s.stats.life >= 1e18]
+  ];
+
+  // ================= Сохранение =================
+  const KEY = 'hnorth2:save';
+  const startLvl = pr => 1 + Math.min(4, pr || 0);
+  const freshRun = pr => ({ fish: 60, cells: [startLvl(pr), startLvl(pr), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], maxLvl: startLvl(pr), bought: {}, cleared: 0, ws: {}, inbox: [], buffs: { oil: 0, blanket: 0, flare: 0, lantern: 0 }, boostUntil: 0 });
+  const DEF = () => Object.assign(freshRun(0), { last: Date.now(), merged: false, maxEver: 1, bestStage: 0, bossBest: 0, shards: 0, prestiges: 0, ach: [], market: { win: 0, used: [] }, stats: { merges: 0, crates: 0, wolves: 0, trades: 0, upgrades: 0, runs: 0, life: 0 } });
+  let S;
+  try { S = Object.assign(DEF(), JSON.parse(localStorage.getItem(KEY) || 'null') || {}); } catch (e) { S = DEF(); }
+  S.stats = Object.assign(DEF().stats, S.stats || {});
+  function save() { S.last = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} syncSave(); }
+
+  // Прогресс хранится локально, а копия уезжает либо на наш бэкенд (server/),
+  // либо, если его нет, в Telegram CloudStorage.
+  const apiOn = !!(tg && tg.initData && CFG.API !== null && CFG.API !== false);
+  const API = apiOn ? String(CFG.API).replace(/\/+$/, '') : '';
+  const cloud = CFG.CLOUD_SAVE && !apiOn && tg && tg.CloudStorage && atLeast('6.9') ? tg.CloudStorage : null;
+  function syncSave(force) { apiOn ? serverSave(force) : cloudSave(force); }
+  function syncLoad() { apiOn ? serverLoad() : cloudLoad(); }
+
+  // Принять чужой (более поздний) сейв: во время забега не трогаем состояние.
+  function adopt(c, msg) {
+    if (!c || typeof c !== 'object' || !Array.isArray(c.cells) || mode !== 'kennel') return false;
+    S = Object.assign(DEF(), c);
+    S.stats = Object.assign(DEF().stats, S.stats || {});
+    fixSlots();
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    render(); updateUi(); setGround(); checkAway();
+    if (msg) showToast(msg);
+    return true;
+  }
+  const life = o => ((o && o.stats && o.stats.life) || 0);
+
+  // ---- бэкенд: авторизация одним initData, он же защищает сейв от подмены ----
+  let apiAt = 0, apiBusy = false;
+  function apiCall(path, extra, keepalive) {
+    return fetch(API + path, {
+      method: 'POST', keepalive: !!keepalive,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ initData: tg.initData }, extra || {}))
+    }).then(r => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))));
+  }
+  function serverSave(force) {
+    if (!apiOn || apiBusy) return;
+    const now = Date.now();
+    if (!force && now - apiAt < 15000) return;
+    apiAt = now; apiBusy = true;
+    apiCall('/api/save', { save: S }, force)
+      .then(res => { if (res && res.status === 'stale') adopt(res.save, 'Прогресс синхронизирован с сервером'); })
+      .catch(() => {})
+      .then(() => { apiBusy = false; });
+  }
+  function serverLoad() {
+    if (!apiOn) return;
+    apiCall('/api/load')
+      .then(res => {
+        if (res && res.save && life(res.save) > life(S)) adopt(res.save, 'Прогресс загружен с сервера');
+        else serverSave(true);
+      })
+      .catch(() => showToast('Сервер недоступен, прогресс пока только на этом устройстве'));
+  }
+
+  // ---- CloudStorage: лимит 4096 байт на ключ, крупный сейв оставляем локально ----
+  let cloudAt = 0;
+  function cloudSave(force) {
+    if (!cloud) return;
+    const now = Date.now();
+    if (!force && now - cloudAt < 20000) return;
+    cloudAt = now;
+    try { const j = JSON.stringify(S); if (j.length <= 4000) cloud.setItem(KEY, j, () => {}); } catch (e) {}
+  }
+  function cloudLoad() {
+    if (!cloud) return;
+    try {
+      cloud.getItem(KEY, (err, val) => {
+        if (err || !val) { cloudSave(true); return; }
+        let c = null; try { c = JSON.parse(val); } catch (e) { return; }
+        if (!c || typeof c !== 'object' || !Array.isArray(c.cells)) return;
+        if (life(c) <= life(S)) { cloudSave(true); return; }   // локальный прогресс не младше облачного
+        adopt(c, 'Прогресс восстановлен из Telegram');
+      });
+    } catch (e) {}
+  }
+  const wl = id => S.ws[id] || 0;
+  const slotsN = () => 12 + wl('slots');
+  function fixSlots() { while (S.cells.length < slotsN()) S.cells.push(0); }
+  fixSlots();
+  addEventListener('pagehide', () => { save(); syncSave(true); });
+  function earn(g) { S.fish += g; S.stats.life += g; }
+
+  // ================= Множители =================
+  const achMult = () => 1 + .03 * S.ach.length;
+  const shardMult = () => 1 + .1 * S.shards;
+  const shardPower = () => Math.floor(Math.sqrt(S.shards) * 2);
+  const incomeMult = () => Math.pow(1.15, wl('feed')) * achMult() * shardMult();
+  const boostMult = () => Date.now() < S.boostUntil ? 2 : 1;
+
+  // ================= Рисование хаски =================
+  function ellipse(c, x, y, rx, ry) { c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+  function tri(c, a, b, d, e, f, g) { c.beginPath(); c.moveTo(a, b); c.lineTo(d, e); c.lineTo(f, g); c.closePath(); c.fill(); }
+  function star(c, x, y, r) { c.beginPath(); c.moveTo(x, y - r * 2); c.quadraticCurveTo(x, y, x + r * 2, y); c.quadraticCurveTo(x, y, x, y + r * 2); c.quadraticCurveTo(x, y, x - r * 2, y); c.quadraticCurveTo(x, y, x, y - r * 2); c.fill(); }
+  function rrect(c, x, y, w, h, r) { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); c.fill(); }
+  function leg(c, x, y, a, col) { c.save(); c.translate(x, y); c.rotate(a); c.strokeStyle = col; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, 13); c.stroke(); c.restore(); }
+
+  function drawHusky(c, sk, ph, air, tm) {
+    if (sk.glow) {
+      const g = c.createRadialGradient(4, -24, 4, 4, -24, 50);
+      g.addColorStop(0, hexA(sk.glow, .42)); g.addColorStop(1, hexA(sk.glow, 0));
+      c.fillStyle = g; c.beginPath(); c.arc(4, -24, 50, 0, Math.PI * 2); c.fill();
+    }
+    if (sk.alpha) c.globalAlpha = sk.alpha;
+    const sw = air ? 0 : Math.sin(ph);
+    c.lineCap = 'round';
+    c.strokeStyle = sk.dark; c.lineWidth = 7;
+    c.beginPath(); c.moveTo(-20, -24); c.bezierCurveTo(-34, -30, -36, -46, -24, -46 + Math.sin(ph * .5) * 2); c.stroke();
+    c.strokeStyle = sk.belly; c.lineWidth = 5; c.beginPath(); c.moveTo(-28, -44); c.lineTo(-23, -46); c.stroke();
+    leg(c, -13, -14, air ? .9 : sw * .7, sk.far); leg(c, 13, -14, air ? -.8 : -sw * .7, sk.far);
+    c.fillStyle = sk.body; ellipse(c, 0, -21, 24, 12);
+    c.fillStyle = sk.belly; ellipse(c, 2, -15, 19, 7);
+    if (sk.stars) { c.fillStyle = '#fff'; [[-12, -27], [-3, -30], [7, -26], [-15, -21], [2, -23], [12, -29]].forEach(([a, b], i) => { const r = .8 + (Math.sin(tm * 3 + i * 1.7) + 1) * .4; c.fillRect(a, b, r, r); }); }
+    leg(c, -15, -14, air ? 1.1 : -sw * .7, sk.near); leg(c, 11, -14, air ? -.9 : sw * .7, sk.near);
+    if (sk.harness) {
+      c.strokeStyle = sk.harness; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(8, -32); c.lineTo(4, -11); c.stroke();
+      c.beginPath(); c.moveTo(8, -32); c.lineTo(-10, -32.5); c.stroke();
+    }
+    if (sk.acc === 'scarf') {
+      const fl = Math.sin(tm * 14);
+      c.fillStyle = '#2fbf8f';
+      c.beginPath(); c.moveTo(12, -33); c.lineTo(-4, -36 + fl * 3); c.lineTo(-2, -30 + fl * 3); c.lineTo(11, -27); c.closePath(); c.fill();
+      ellipse(c, 13, -29, 6, 4.5);
+    }
+    c.save(); c.translate(22, -31); c.rotate(air ? -.15 : Math.sin(ph * 2) * .04);
+    c.fillStyle = sk.dark; tri(c, -7, -5, -3, -18, 2, -7); tri(c, 1, -7, 6, -17, 9, -5);
+    c.fillStyle = '#f0b5a8'; tri(c, -4, -7, -3, -14, 0, -8);
+    c.fillStyle = sk.body; ellipse(c, 0, 0, 10.5, 10);
+    c.fillStyle = sk.belly; ellipse(c, 4, 4, 7, 5.5); ellipse(c, 10, 3, 7.5, 4.6); ellipse(c, 2.5, -6, 2.2, 1.4);
+    c.fillStyle = '#1a1f2e'; ellipse(c, 17, 1.5, 2.5, 2.1);
+    if (sk.glowEye) { c.fillStyle = hexA(sk.eye, .35); c.beginPath(); c.arc(3.2, -2.5, 4.5, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = sk.eye || '#1a1f2e'; c.beginPath(); c.arc(3.2, -2.5, 2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(3.8, -3.1, .75, 0, Math.PI * 2); c.fill();
+    if (!air) { c.fillStyle = '#ff8fa0'; ellipse(c, 12, 8, 2.6, 1.8); }
+    if (sk.acc === 'crown') {
+      c.fillStyle = '#ffd54a';
+      c.beginPath(); c.moveTo(-6, -9); c.lineTo(-7, -18); c.lineTo(-3, -13); c.lineTo(0, -20); c.lineTo(3, -13); c.lineTo(7, -18); c.lineTo(6, -9); c.closePath(); c.fill();
+      c.fillStyle = '#e0405a'; c.beginPath(); c.arc(0, -11.5, 1.6, 0, Math.PI * 2); c.fill();
+    } else if (sk.acc === 'phones') {
+      c.strokeStyle = '#ff4fd8'; c.lineWidth = 2.6; c.beginPath(); c.arc(-1, 0, 12.5, -2.7, -.55); c.stroke();
+      c.fillStyle = '#ff4fd8'; ellipse(c, -10, 1, 3.4, 5);
+    } else if (sk.acc === 'helmet') {
+      c.fillStyle = 'rgba(170,210,255,.16)'; c.strokeStyle = 'rgba(210,235,255,.75)'; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(3, -1, 17, 0, Math.PI * 2); c.fill(); c.stroke();
+    } else if (sk.acc === 'goggles') {
+      c.strokeStyle = sk.harness; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-9, -4); c.lineTo(8, -4); c.stroke();
+      c.fillStyle = '#1b2a4a'; ellipse(c, 4, -3, 4.6, 3.4);
+      c.fillStyle = hexA(sk.harness, .8); ellipse(c, 4.6, -3.6, 2.4, 1.6);
+    } else if (sk.acc === 'feather') {
+      c.fillStyle = '#ff9f6b'; c.beginPath(); c.moveTo(-4, -9); c.quadraticCurveTo(-14, -22, -6, -28); c.quadraticCurveTo(-2, -18, -4, -9); c.fill();
+    } else if (sk.acc === 'halo') {
+      c.strokeStyle = '#ffd54a'; c.lineWidth = 2.2; c.beginPath(); c.ellipse(0, -17, 9, 3, 0, 0, Math.PI * 2); c.stroke();
+    }
+    c.restore();
+    c.globalAlpha = 1;
+  }
+  const WOLF = { body: '#5a5f6e', belly: '#9ca3b5', dark: '#3a3e4a', far: '#33363f', near: '#7d8396', harness: null, eye: '#ffcf5a', glowEye: true };
+
+  const thumbs = {};
+  function thumb(L) {
+    if (thumbs[L]) return thumbs[L];
+    const c = document.createElement('canvas'); c.width = 240; c.height = 200;
+    const x = c.getContext('2d'); x.scale(2, 2);
+    const sk = breed(L);
+    x.fillStyle = 'rgba(30,45,95,.22)'; ellipse(x, 60, 86, 34 * sk.scale, 5 * sk.scale);
+    x.save(); x.translate(56, 86); x.scale(1.75 * sk.scale, 1.75 * sk.scale); drawHusky(x, sk, 1.2, false, 1.3); x.restore();
+    if (L > 16) { x.fillStyle = '#ffd54a'; x.font = '800 15px Unbounded, sans-serif'; x.textAlign = 'right'; x.fillText('★' + (L - 16), 114, 18); }
+    return (thumbs[L] = c.toDataURL());
+  }
+
+  // ================= Холсты =================
+  const bg = $('bg'), b = bg.getContext('2d');
+  const fx = $('fx'), f = fx.getContext('2d');
+  let W = 0, H = 0, GY = 0, PX = 0;
+  const flakes = Array.from({ length: 70 }, (_, i) => ({ x: hash(i + 40), y: hash(i + 80), r: .6 + hash(i + 120) * 2.1, v: 14 + hash(i + 160) * 34 }));
+  const starsBg = Array.from({ length: 140 }, (_, i) => ({ x: hash(i), y: hash(i + 500) * .9, r: hash(i + 900) * 1.3 + .3, p: hash(i + 77) * 6.28 }));
+  let mode = 'kennel', tab = 'kennel';
+  function resize() {
+    const r = app.getBoundingClientRect(); W = r.width; H = r.height;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    for (const [cv, c] of [[bg, b], [fx, f]]) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); c.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    setGround();
+  }
+  function setGround() {
+    if (mode === 'run' || mode === 'paused' || mode === 'over') { GY = Math.round(H * .76); PX = Math.max(96, Math.min(W * .3, 200)); }
+    else { const gr = $('grid').getBoundingClientRect(), ar = app.getBoundingClientRect(); GY = Math.max(140, Math.round(gr.top - ar.top - 92)); PX = W * .5; }
+  }
+  addEventListener('resize', () => { applyViewport(); applyInsets(); resize(); });
+  addEventListener('orientationchange', () => setTimeout(relayout, 120));
+
+  function ridge(cam, par, base, amp, so, col) {
+    const off = cam * par; b.fillStyle = col; b.beginPath(); b.moveTo(-10, GY + 2);
+    for (let x = -10; x <= W + 12; x += 10) { const X = x + off; b.lineTo(x, base - amp * (.55 * Math.abs(Math.sin(X * .0031 + so)) + .3 * Math.sin(X * .0077 + so * 2) + .15 * Math.sin(X * .019 + so * 3))); }
+    b.lineTo(W + 12, GY + 2); b.closePath(); b.fill();
+  }
+  function pine(x, base, h) {
+    const w = h * .42;
+    b.fillStyle = '#0c1836';
+    for (let k = 0; k < 3; k++) { const yb = base - h * k * .28; tri(b, x - w * (1 - k * .22), yb, x, yb - h * .5, x + w * (1 - k * .22), yb); }
+    b.fillStyle = 'rgba(200,220,255,.22)';
+    for (let k = 0; k < 3; k++) { const yb = base - h * k * .28, ht = h * .5; tri(b, x - w * (1 - k * .22) * .35, yb - ht * .62, x, yb - ht, x + w * (1 - k * .22) * .35, yb - ht * .62); }
+  }
+  function drawFishSprite(c, x, y, s, aur) {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    if (!aur) { const g = c.createRadialGradient(0, 0, 2, 0, 0, 20); g.addColorStop(0, 'rgba(255,180,130,.42)'); g.addColorStop(1, 'rgba(255,180,130,0)'); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 20, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = aur ? '#7ef0c8' : '#ff9f6b'; ellipse(c, 0, 0, 10, 5.5); tri(c, 8, 0, 15, -6, 15, 6);
+    c.fillStyle = aur ? '#e8fff8' : '#ffd2b8'; ellipse(c, -1, 1.5, 6, 2);
+    c.fillStyle = '#1a1f2e'; c.beginPath(); c.arc(-5, -1, 1.2, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
+
+  function drawWorld(t, cam, regionCol, giant) {
+    const sky = b.createLinearGradient(0, 0, 0, GY);
+    sky.addColorStop(0, giant ? '#120818' : '#050b1f'); sky.addColorStop(.55, giant ? '#2a1238' : '#0d1d45'); sky.addColorStop(1, giant ? '#4a2050' : '#22397a');
+    b.fillStyle = sky; b.fillRect(-20, -20, W + 40, GY + 22);
+    for (const s of starsBg) { const a = .45 + .55 * Math.sin(s.p + (reduced ? 0 : t * 1.4)); b.fillStyle = `rgba(238,244,255,${a * .8})`; const x = ((s.x * W * 1.2 - cam * .01) % (W * 1.2) + W * 1.2) % (W * 1.2) - W * .1; b.fillRect(x, s.y * GY, s.r, s.r); }
+    const mx = W * .86, my = Math.max(60, Math.min(H * .16, GY * .4));
+    const mg = b.createRadialGradient(mx, my, 10, mx, my, 80);
+    mg.addColorStop(0, 'rgba(230,236,255,.3)'); mg.addColorStop(1, 'rgba(230,236,255,0)');
+    b.fillStyle = mg; b.beginPath(); b.arc(mx, my, 80, 0, Math.PI * 2); b.fill();
+    b.fillStyle = giant ? '#ffb3b3' : '#f2f0ff'; b.beginPath(); b.arc(mx, my, 18, 0, Math.PI * 2); b.fill();
+    b.save(); b.globalCompositeOperation = 'lighter';
+    const tint = regionCol ? rgb(regionCol) : '164,140,255';
+    const bands = [{ c: '126,240,200', base: .38, amp: .08, fr: .006, sp: .25, th: .24, a: .24 }, { c: tint, base: .52, amp: .06, fr: .009, sp: -.18, th: .17, a: .16 }];
+    const tt = reduced ? 0 : t, off = cam * .02;
+    for (const bd of bands) {
+      const pts = [];
+      for (let x = -20; x <= W + 20; x += 14) { const X = x + off; pts.push([x, GY * bd.base + Math.sin(X * bd.fr + tt * bd.sp) * GY * bd.amp + Math.sin(X * bd.fr * 2.3 + tt * bd.sp * 1.7) * GY * bd.amp * .4]); }
+      const th = GY * bd.th, top = GY * bd.base - th - GY * bd.amp * 1.4, bot = GY * bd.base + GY * bd.amp * 1.4;
+      const g = b.createLinearGradient(0, top, 0, bot);
+      g.addColorStop(0, `rgba(${bd.c},0)`); g.addColorStop(.7, `rgba(${bd.c},${bd.a})`); g.addColorStop(1, `rgba(${bd.c},0)`);
+      b.fillStyle = g; b.beginPath();
+      pts.forEach(([x, y], i) => i ? b.lineTo(x, y - th) : b.moveTo(x, y - th));
+      for (let i = pts.length - 1; i >= 0; i--) b.lineTo(pts[i][0], pts[i][1] + 6);
+      b.closePath(); b.fill();
+      b.strokeStyle = `rgba(${bd.c},${bd.a * .35})`; b.lineWidth = 1;
+      pts.forEach(([x, y], i) => { b.beginPath(); b.moveTo(x, y); b.lineTo(x, y - th * (.4 + .6 * hash(i + bd.base * 100))); b.stroke(); });
+    }
+    b.restore();
+    ridge(cam, .06, GY - 30, Math.min(170, GY * .5), 1.3, '#16295a');
+    if (giant) drawGiant(t);
+    ridge(cam, .16, GY - 4, Math.min(95, GY * .3), 4.1, '#10204a');
+    const pp = cam * .5, st = 58;
+    for (let i = Math.floor(pp / st) - 2; i < (pp + W) / st + 2; i++) { if (hash(i + 9) < .32) continue; pine(i * st - pp + hash(i) * 30, GY + 1, 40 + hash(i + 3) * 64); }
+    const gg = b.createLinearGradient(0, GY, 0, H);
+    gg.addColorStop(0, '#dfe9fb'); gg.addColorStop(1, '#8ea6d6');
+    b.fillStyle = gg; b.fillRect(-20, GY, W + 40, H - GY + 20);
+    b.fillStyle = 'rgba(255,255,255,.85)'; b.fillRect(-20, GY - 1, W + 40, 2);
+    if (cam) {
+      b.strokeStyle = 'rgba(110,140,205,.35)'; b.lineWidth = 2; b.lineCap = 'round';
+      for (let i = Math.floor(cam / 90) - 1; i < (cam + W) / 90 + 1; i++) { const x = i * 90 - cam + hash(i) * 40, y = GY + 12 + hash(i + 7) * Math.max(8, H - GY - 24); b.beginPath(); b.moveTo(x, y); b.lineTo(x + 16 + hash(i + 3) * 22, y); b.stroke(); }
+    }
+  }
+  function drawGiant(t) {
+    const x = W * .72, base = GY - 20, s = Math.min(1.3, GY / 420), sw = Math.sin(t * 1.6) * .25;
+    b.save(); b.translate(x, base); b.scale(s, s);
+    b.fillStyle = '#1d2a55';
+    b.beginPath(); b.moveTo(-80, 0); b.lineTo(-60, -170); b.lineTo(60, -170); b.lineTo(80, 0); b.closePath(); b.fill();
+    b.beginPath(); b.arc(0, -205, 44, 0, Math.PI * 2); b.fill();
+    b.save(); b.translate(-62, -160); b.rotate(-1.1 + sw); b.fillRect(-14, -120, 28, 120); b.restore();
+    b.save(); b.translate(62, -160); b.rotate(1.1 - sw); b.fillRect(-14, -120, 28, 120); b.restore();
+    b.fillStyle = 'rgba(200,225,255,.35)'; b.beginPath(); b.moveTo(-60, -170); b.lineTo(0, -150); b.lineTo(60, -170); b.closePath(); b.fill();
+    b.fillStyle = '#9fd0ff'; b.shadowColor = '#9fd0ff'; b.shadowBlur = 16;
+    ellipse(b, -16, -210, 7, 4); ellipse(b, 16, -210, 7, 4);
+    b.restore();
+  }
+  function drawFlakes(dt, wind) {
+    b.fillStyle = 'rgba(238,244,255,.8)';
+    for (const fl of flakes) {
+      if (!reduced && dt) { fl.y += fl.v * dt / Math.max(1, H); fl.x -= (wind * fl.r + .004) * dt; if (fl.y > 1.02) { fl.y -= 1.04; fl.x = Math.random(); } if (fl.x < -.02) fl.x += 1.04; }
+      b.beginPath(); b.arc(fl.x * W, fl.y * H, fl.r, 0, Math.PI * 2); b.fill();
+    }
+  }
+
+  // ================= Эффекты =================
+  const parts = [], floats = [];
+  function burst(x, y, n, cols, spd, g) {
+    if (reduced) n = Math.min(n, 6);
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = (spd || 220) * (.4 + Math.random() * .8); parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, life: .7 + Math.random() * .5, age: 0, r: 2 + Math.random() * 3, col: cols[i % cols.length], st: Math.random() < .35, g: g == null ? 380 : g }); }
+  }
+  function float(x, y, txt, col, size) { floats.push({ x, y, txt, col: col || '#fff', age: 0, size: size || 15 }); }
+  function drawFx(dt) {
+    f.clearRect(0, 0, W, H);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]; p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.vx *= .985;
+      if (p.age > p.life) { parts.splice(i, 1); continue; }
+      f.globalCompositeOperation = 'lighter'; f.fillStyle = `rgba(${p.col},${1 - p.age / p.life})`;
+      if (p.st) star(f, p.x, p.y, p.r * .9); else { f.beginPath(); f.arc(p.x, p.y, p.r, 0, Math.PI * 2); f.fill(); }
+    }
+    f.globalCompositeOperation = 'source-over'; f.textAlign = 'center'; f.textBaseline = 'middle';
+    for (let i = floats.length - 1; i >= 0; i--) {
+      const fl = floats[i]; fl.age += dt;
+      if (fl.age > 1.1) { floats.splice(i, 1); continue; }
+      f.globalAlpha = Math.min(1, (1.1 - fl.age) * 2.2);
+      f.font = `800 ${fl.size}px Unbounded, sans-serif`;
+      f.lineWidth = 4; f.strokeStyle = 'rgba(10,20,48,.85)'; f.strokeText(fl.txt, fl.x, fl.y - fl.age * 46);
+      f.fillStyle = fl.col; f.fillText(fl.txt, fl.x, fl.y - fl.age * 46);
+    }
+    f.globalAlpha = 1;
+  }
+
+  // ================= Питомник =================
+  const grid = $('grid');
+  const cap = () => capFor(S.cleared);
+  const dogs = () => S.cells.map((v, i) => ({ v, i })).filter(d => d.v > 0);
+  function teamCells() { return dogs().sort((a, c) => c.v - a.v).slice(0, 3); }
+  function teamPerks() { return [...new Set(teamCells().map(d => breed(d.v).perk))]; }
+  const teamPower = () => teamCells().reduce((s, d) => s + d.v + (d.v > 16 ? 3 : 0), 0) + wl('whistle') * 2 + shardPower();
+  const baseIps = () => S.cells.reduce((s, v) => s + (v > 0 ? inc(v) : 0), 0) * incomeMult();
+  const empties = () => S.cells.map((v, i) => v === 0 ? i : -1).filter(i => i >= 0);
+  const buyLevel = () => Math.max(1, S.maxLvl - 3);
+  const price = L => Math.round(value(L) * Math.pow(1.06, S.bought[L] || 0));
+  const levelColor = L => L >= 17 ? '#b0437f' : L >= 13 ? '#178a6a' : L >= 10 ? '#b7841c' : L >= 7 ? '#7a4fd6' : L >= 4 ? '#2d6fb3' : '#4b5b85';
+  const upCost = u => Math.round(u.base * Math.pow(u.g, wl(u.id)));
+
+  function noteLevel(L) {
+    let isNew = false;
+    if (L > S.maxLvl) S.maxLvl = L;
+    if (L > S.maxEver) { S.maxEver = L; isNew = true; }
+    return isNew;
+  }
+  function placeInbox() { while (S.inbox.length && empties().length) S.cells[empties()[0]] = S.inbox.shift(); }
+  function addDog(L) {
+    L = Math.max(1, Math.min(L, cap()));
+    const e = empties();
+    if (e.length) S.cells[e[0]] = L; else S.inbox.push(L);
+    return noteLevel(L) ? L : 0;
+  }
+
+  function render() {
+    fixSlots(); placeInbox();
+    const n = S.cells.length, cols = n > 20 ? 6 : n > 16 ? 5 : 4;
+    grid.style.setProperty('--cols', cols);
+    const lead = new Set(teamCells().map(d => d.i));
+    grid.innerHTML = '';
+    S.cells.forEach((v, i) => {
+      const el = document.createElement('div');
+      el.className = 'cell' + (v ? ' full' : '') + (lead.has(i) ? ' lead' : ''); el.dataset.i = i;
+      if (v > 0) {
+        el.innerHTML = `<img class="dog" alt="" src="${thumb(v)}" draggable="false" style="animation-delay:${-i * .37}s"><span class="lv" style="--lc:${levelColor(v)}">${v}</span>` + (lead.has(i) ? '<span class="lead-tag"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 6l3 3 5-8" stroke="#2a0f05" stroke-width="2" fill="none" stroke-linecap="round"/></svg></span>' : '');
+        el.setAttribute('aria-label', `${breed(v).name}, уровень ${v}` + (lead.has(i) ? ', в упряжке' : ''));
+      } else if (v === -1) {
+        el.innerHTML = `<div class="crate"><svg viewBox="0 0 80 72"><use href="#i-crate"/></svg></div>`;
+        el.setAttribute('aria-label', 'Ящик со щенком');
+      }
+      grid.appendChild(el);
+    });
+    renderTeam();
+    updateUi(true);
+  }
+  function renderTeam() {
+    const tc = teamCells(), pw = teamPower(), next = stageInfo(S.cleared + 1);
+    $('teamDogs').innerHTML = tc.map(d => `<img alt="" src="${thumb(d.v)}">`).join('') + '<i></i>'.repeat(3 - tc.length);
+    $('teamTitle').textContent = `Упряжка · этап ${next.n}${next.boss ? ' · босс' : ''}`;
+    $('teamPow').textContent = pw;
+    $('teamPow').style.color = pw >= next.req ? 'var(--aurora)' : pw >= next.req - 4 ? 'var(--gold)' : 'var(--danger)';
+    $('teamReq').textContent = `из ${next.req}`;
+    const p = teamPerks().map(k => PERK[k]);
+    $('teamPerks').textContent = p.length ? p.slice(0, 2).join(' · ') + (p.length > 2 ? ` · ещё ${p.length - 2}` : '') : 'Ведут три самых сильных хаски';
+  }
+  let shownBal = -1;
+  function updateUi(full) {
+    const bal = Math.floor(S.fish);
+    if (bal !== shownBal) { shownBal = bal; $('balance').textContent = short(bal); document.querySelectorAll('.bal2').forEach(e => e.textContent = short(bal)); }
+    $('ips').textContent = fmtIps(baseIps() * boostMult());
+    const left = (S.boostUntil - Date.now()) / 1000;
+    $('boost').hidden = left <= 0;
+    if (left > 0) $('boost').textContent = `×2 · ${Math.ceil(left)} с`;
+    const L = buyLevel(), p = price(L);
+    $('bBuy').disabled = S.fish < p;
+    $('buyPrice').textContent = short(p);
+    $('shopBadge').hidden = !(UPG.some(u => wl(u.id) < u.max && S.fish >= upCost(u)) || S.cleared >= 15);
+    if (full) {
+      $('buyImg').src = thumb(L);
+      $('buyLvl').textContent = `${breed(L).name} · ур. ${L}`;
+      $('hint').hidden = S.merged;
+      $('inboxChip').hidden = !S.inbox.length;
+      $('inboxChip').textContent = `Ждут места: ${S.inbox.length}`;
+      $('mapBadge').hidden = teamPower() < stageInfo(S.cleared + 1).req;
+      $('hdrShards').hidden = !S.shards;
+      $('hdrShardN').textContent = S.shards;
+      $('hdrEye').textContent = S.prestiges ? `Великий поход №${S.prestiges + 1}` : 'Хаски: Зов Севера';
+    }
+  }
+  function cellCenter(i) {
+    const el = grid.children[i]; if (!el) return [W / 2, H / 2];
+    const r = el.getBoundingClientRect(), a = app.getBoundingClientRect();
+    return [r.left - a.left + r.width / 2, r.top - a.top + r.height / 2];
+  }
+
+  // перетаскивание
+  let drag = null;
+  grid.addEventListener('pointerdown', e => {
+    const cell = e.target.closest('.cell'); if (!cell) return;
+    const i = +cell.dataset.i, v = S.cells[i]; if (!v) return;
+    e.preventDefault();
+    if (v === -1) { openCrate(i); return; }
+    drag = { i, v, sx: e.clientX, sy: e.clientY, moved: false, ghost: null, over: null };
+  });
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 8) {
+      drag.moved = true;
+      const g = document.createElement('img'); g.className = 'ghostdog'; g.src = thumb(drag.v); g.alt = '';
+      app.appendChild(g); drag.ghost = g;
+      grid.children[drag.i].classList.add('lifted');
+      S.cells.forEach((v, j) => { if (j !== drag.i && v === drag.v && v < cap()) grid.children[j].classList.add('match'); });
+      haptic('light');
+    }
+    if (drag.moved) {
+      const a = app.getBoundingClientRect();
+      drag.ghost.style.left = (e.clientX - a.left) + 'px'; drag.ghost.style.top = (e.clientY - a.top) + 'px';
+      const el = document.elementFromPoint(e.clientX, e.clientY), c = el && el.closest('.cell');
+      if (drag.over && drag.over !== c) drag.over.classList.remove('over');
+      if (c && +c.dataset.i !== drag.i) { c.classList.add('over'); drag.over = c; } else drag.over = null;
+    }
+  });
+  function endDrag(e, cancel) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved) { if (!cancel) tapDog(d.i); return; }
+    d.ghost.remove();
+    let target = null;
+    if (!cancel) { const el = document.elementFromPoint(e.clientX, e.clientY); target = el && el.closest('.cell'); }
+    if (target && +target.dataset.i !== d.i) drop(d.i, +target.dataset.i); else render();
+  }
+  addEventListener('pointerup', e => endDrag(e, false));
+  addEventListener('pointercancel', e => endDrag(e, true));
+
+  function drop(i, j) {
+    const a = S.cells[i], c = S.cells[j];
+    if (c === a) {
+      if (a + 1 > cap()) {
+        render(); grid.classList.remove('shake'); void grid.offsetWidth; grid.classList.add('shake'); haptic('error');
+        showToast(`Порода ур. ${a + 1} откроется после этапа ${stageForCap(a + 1)}. Сейчас пройдено ${S.cleared}.`);
+        return;
+      }
+      S.cells[j] = a + 1; S.cells[i] = 0; S.stats.merges++;
+      const first = !S.merged; S.merged = true;
+      const isNew = noteLevel(a + 1);
+      render(); save();
+      grid.children[j].classList.add('pop');
+      const [x, y] = cellCenter(j);
+      burst(x, y, 26, [rgb(TIER(a + 1).col), '255,255,255', '126,240,200']);
+      float(x, y - 30, `Ур. ${a + 1}`, '#ffffff', 17);
+      haptic(isNew ? 'success' : 'medium');
+      checkAch();
+      if (isNew) setTimeout(() => showReveal(a + 1), 480);
+      else if (first) showToast('Отлично! Покупай щенков и объединяй дальше');
+    } else if (c === 0) { S.cells[j] = a; S.cells[i] = 0; render(); save(); }
+    else if (c > 0) { S.cells[j] = a; S.cells[i] = c; render(); save(); }
+    else render();
+  }
+  function tapDog(i) {
+    const v = S.cells[i]; if (v <= 0) return;
+    const gain = Math.max(1, inc(v) * incomeMult() * boostMult());
+    earn(gain);
+    const el = grid.children[i]; el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop');
+    const [x, y] = cellCenter(i);
+    float(x + (Math.random() - .5) * 20, y - 34, '+' + short(gain), '#ffb07f', 15);
+    haptic('light'); updateUi();
+  }
+  $('bBuy').addEventListener('click', () => {
+    const L = buyLevel(), p = price(L), e = empties();
+    if (!e.length) { grid.classList.remove('shake'); void grid.offsetWidth; grid.classList.add('shake'); showToast('Нет места. Объедини одинаковых или купи вольеры в мастерской'); haptic('error'); return; }
+    if (S.fish < p) return;
+    S.fish -= p; S.bought[L] = (S.bought[L] || 0) + 1;
+    const j = e[0]; S.cells[j] = L; render(); save();
+    grid.children[j].classList.add('pop');
+    const [x, y] = cellCenter(j); burst(x, y, 10, ['238,244,255']); haptic('medium');
+  });
+
+  let crateT = crateEvery(wl('crate'));
+  function crateTick(dt) {
+    const every = crateEvery(wl('crate'));
+    const crates = S.cells.filter(v => v === -1).length, e = empties();
+    if (crates >= 3 || !e.length) { $('crateTxt').textContent = !e.length ? 'Нет места для ящика' : 'Открой ящики'; $('crateChip').style.setProperty('--p', '100%'); return; }
+    crateT -= dt;
+    if (crateT <= 0) {
+      crateT = every;
+      const j = e[Math.floor(Math.random() * e.length)];
+      S.cells[j] = -1;
+      if (tab === 'kennel') { render(); const [x, y] = cellCenter(j); burst(x, y, 10, ['238,244,255', '255,201,74']); }
+    }
+    $('crateTxt').textContent = `Ящик через ${Math.ceil(crateT)} с`;
+    $('crateChip').style.setProperty('--p', `${(1 - crateT / every) * 100}%`);
+  }
+  function openCrate(i) {
+    const base = Math.max(1, S.maxLvl - 4) + Math.floor(wl('crate') / 4), r = Math.random();
+    let L = base, lucky = '';
+    if (r < .05) { L = base + 2; lucky = 'Джекпот!'; } else if (r < .3) { L = base + 1; lucky = 'Повезло!'; }
+    L = Math.max(1, Math.min(L, Math.max(1, S.maxLvl - 1), cap()));
+    S.cells[i] = L; S.stats.crates++; render(); save();
+    grid.children[i].classList.add('pop');
+    const [x, y] = cellCenter(i);
+    burst(x, y, lucky ? 30 : 14, lucky ? ['255,201,74', '255,255,255', '255,122,89'] : ['238,244,255', '255,201,74']);
+    if (lucky) float(x, y - 40, lucky, '#ffc94a', 17);
+    haptic(lucky ? 'success' : 'medium');
+    checkAch();
+  }
+
+  // сияющая рыба
+  const gf = { on: false, x: 0, y: 0, vx: 0, next: 30 };
+  function gfTick(dt) {
+    if (tab !== 'kennel') return;
+    if (!gf.on) { gf.next -= dt; if (gf.next <= 0) { gf.on = true; gf.x = -40; gf.y = Math.max(110, GY * (.45 + Math.random() * .25)); gf.vx = Math.max(60, W / 7); } return; }
+    gf.x += gf.vx * dt;
+    if (Math.random() < .5) parts.push({ x: gf.x - 20, y: gf.y + (Math.random() - .5) * 10, vx: -30, vy: 0, life: .7, age: 0, r: 1.6, col: Math.random() < .5 ? '126,240,200' : '164,140,255', st: Math.random() < .3, g: 0 });
+    if (gf.x > W + 60) { gf.on = false; gf.next = 40 + Math.random() * 40; }
+  }
+  bg.addEventListener('pointerdown', e => {
+    if (mode === 'run') { e.preventDefault(); press(); return; }
+    if (!gf.on || mode !== 'kennel') return;
+    const a = app.getBoundingClientRect(), x = e.clientX - a.left, y = e.clientY - a.top;
+    if (Math.hypot(x - gf.x, y - gf.y) > 50) return;
+    gf.on = false; gf.next = 45 + Math.random() * 45;
+    burst(x, y, 34, ['126,240,200', '164,140,255', '255,255,255'], 280); haptic('success');
+    const r = Math.random(), ips = Math.max(1, baseIps());
+    if (r < .45) { S.boostUntil = Math.max(Date.now(), S.boostUntil) + 60000; float(x, y - 20, 'Улов ×2', '#7ef0c8', 16); showToast('Сияние! Упряжка ловит вдвое больше 60 секунд'); }
+    else if (r < .8) { const g = ips * 120; earn(g); float(x, y - 20, '+' + short(g), '#ffc94a', 18); showToast(`Сияние! +${short(g)} FISH`); }
+    else { const e2 = empties().slice(0, 2); e2.forEach(j => S.cells[j] = -1); if (!e2.length) earn(ips * 60); render(); showToast(e2.length ? 'Сияние! В питомнике появились ящики' : `Сияние! +${short(ips * 60)} FISH`); }
+    save(); updateUi();
+  });
+
+  // ================= Навигация =================
+  function setTab(t) {
+    tab = t; mode = 'kennel'; floats.length = 0;
+    $('sMap').hidden = t !== 'map'; $('sShop').hidden = t !== 'shop'; $('sFair').hidden = t !== 'fair'; $('sDex').hidden = t !== 'dex';
+    document.querySelectorAll('.nav button').forEach(bt => bt.setAttribute('aria-current', bt.dataset.tab === t ? 'page' : 'false'));
+    if (t === 'map') renderMap();
+    if (t === 'shop') renderShop();
+    if (t === 'fair') renderFair();
+    if (t === 'dex') renderDex();
+    if (t === 'kennel') render();
+    if (tg && tg.BackButton) try { t === 'kennel' ? tg.BackButton.hide() : tg.BackButton.show(); } catch (e) {}
+  }
+  document.querySelectorAll('.nav button').forEach(bt => bt.onclick = () => setTab(bt.dataset.tab));
+  if (tg && tg.BackButton) try { tg.BackButton.onClick(() => { if (mode === 'kennel') setTab('kennel'); }); } catch (e) {}
+  $('teamBtn').onclick = () => setTab('map');
+
+  // ================= Поход =================
+  function verdict(pw, req) {
+    const d = pw - req;
+    if (d >= 4) return ['Упряжка сильнее лавины', 'var(--aurora)'];
+    if (d >= 0) return ['Шансы хорошие', 'var(--aurora)'];
+    if (d >= -4) return ['Будет непросто: лавина почти догоняет', 'var(--gold)'];
+    return ['Лавина быстрее упряжки. Усиль хаски', 'var(--danger)'];
+  }
+  function prestigeGain() { return Math.max(0, Math.floor(Math.pow(S.cleared / 5, 1.5))); }
+  function renderMap() {
+    const st = stageInfo(S.cleared + 1), pw = teamPower(), [vt, vc] = verdict(pw, st.req);
+    const prev = S.cleared > 0 ? stageInfo(S.cleared) : null;
+    const nextBoss = Math.ceil((S.cleared + 1) / 10) * 10;
+    const nextCapAt = stageForCap(cap() + 1);
+    const prevHaz = S.cleared > 0 ? stageInfo(S.cleared).haz : [];
+    $('mapWrap').innerHTML = `
+      <div class="sh-head"><div><span class="eyebrow">Поход на Север</span><h2>Бесконечный путь</h2></div><span class="coinpill"><svg class="coin-ic"><use href="#i-coin"/></svg><span class="bal2">${short(S.fish)}</span></span></div>
+      <div class="stagecard" style="--rc:${st.col}">
+        <div class="top"><div><span class="eyebrow" style="color:${st.col}">Следующий этап</span><h2>${st.name}</h2></div><div style="text-align:right"><div class="num">${st.n}</div>${st.boss ? '<span class="bosstag">Босс</span>' : ''}</div></div>
+        <div class="haz">${st.haz.map(h => `<span class="${prevHaz.includes(h) || S.cleared === 0 ? '' : 'new'}">${HAZ[h]}</span>`).join('')}<span>${st.goal} м</span></div>
+        <div class="powbar" style="--pc:${vc}">
+          <div class="row"><span>Сила упряжки ${pw}</span><span>нужно ${st.req}</span></div>
+          <div class="track"><i style="width:${Math.min(100, pw / st.req * 100)}%"></i></div>
+          <span class="verdict">${vt}</span>
+        </div>
+        <button class="primary" id="goNext" type="button">В путь</button>
+      </div>
+      ${prev ? `<button class="ghost" id="goFarm" type="button">Повторить этап ${prev.n}: легче, но наград меньше</button>` : ''}
+      <div class="sec"><h3>Впереди</h3><small>Пройдено ${S.cleared} · рекорд ${S.bestStage}</small></div>
+      <div class="miles">
+        <div class="mile" style="--mc:#7ef0c8"><span class="ic">${cap() + 1}</span><span><b>Новая порода: ${breed(cap() + 1).name}</b><small>Сейчас можно вывести породы до ур. ${cap()}</small></span><span class="at">этап ${nextCapAt}</span></div>
+        <div class="mile" style="--mc:#ff5d5d"><span class="ic">!</span><span><b>Ледяной великан</b><small>Сундук великана${nextBoss > S.bossBest ? ' и осколок сияния' : ''}</small></span><span class="at">этап ${nextBoss}</span></div>
+        <div class="mile" style="--mc:#9fd0ff"><span class="ic"><svg width="22" height="22"><use href="#i-shard"/></svg></span><span><b>Великий поход</b><small>${S.cleared >= 15 ? `Доступен: +${prestigeGain()} осколков` : 'Перерождение с постоянными бонусами'}</small></span><span class="at">${S.cleared >= 15 ? 'готов' : 'этап 15'}</span></div>
+      </div>
+      <p class="note">У пути нет конца: каждый этап сложнее предыдущего. Сила упряжки складывается из уровней трёх лучших хаски, свистка каюра в мастерской и осколков сияния.</p>`;
+    $('goNext').onclick = () => openPre(S.cleared + 1, false);
+    if (prev) $('goFarm').onclick = () => openPre(S.cleared, true);
+  }
+
+  // подготовка
+  let preN = 1, preFarm = false;
+  function runSetup(n) {
+    const st = stageInfo(n), p = teamPerks(), has = k => p.includes(k), pw = teamPower();
+    let ava = .9 + .012 * (st.req - pw) - (has('speed') ? .03 : 0) - (has('speed2') ? .06 : 0) - Math.min(.14, wl('brake') * .004) + (st.boss ? .02 : 0);
+    ava = Math.max(.72, Math.min(1.18, ava));
+    return {
+      ava,
+      fishMult: (1 + (has('fish') ? .1 : 0) + (has('night') ? .1 : 0) + (has('gold') ? .3 : 0) + (has('king') ? .5 : 0) + (S.buffs.oil ? .5 : 0)) * (1 + wl('net') * .2),
+      gap: 45 + (has('start') ? 10 : 0) + (S.buffs.flare ? 20 : 0) + wl('gap') * 3,
+      tough: has('tough') ? .7 : 1, magnet: has('magnet2') ? Infinity : has('magnet') ? 12 : 0,
+      ice: has('ice'), jumps: has('jump3') ? 3 : 2, float: has('float'),
+      shield: has('shield') || has('king') || !!S.buffs.blanket, king: has('king'),
+      revive: has('revive'), vis: 150 + (has('night') ? 90 : 0) + (S.buffs.lantern ? 110 : 0), luck: has('luck')
+    };
+  }
+  function openPre(n, isFarm) {
+    preN = n; preFarm = isFarm; const st = stageInfo(n), rs = runSetup(n);
+    $('preEye').textContent = `Этап ${n}` + (isFarm ? ' · повтор' : '') + (st.boss ? ' · босс' : '');
+    $('preName').textContent = st.name;
+    $('preHaz').innerHTML = st.haz.map(h => `<span>${HAZ[h]}</span>`).join('') + `<span>${st.goal} м</span>`;
+    const tc = teamCells();
+    $('preTeam').innerHTML = [0, 1, 2].map(k => tc[k]
+      ? `<div class="lu"><img alt="" src="${thumb(tc[k].v)}"><div><b>${breed(tc[k].v).name} · ур. ${tc[k].v}</b><small>${PERK[breed(tc[k].v).perk]}</small></div></div>`
+      : `<div class="lu empty">Свободное место в упряжке</div>`).join('');
+    const rel = Math.round((1 - rs.ava) * 100);
+    $('preKv').innerHTML = `<span>Сила упряжки</span><span>${teamPower()} из ${st.req}</span>
+      <span>Отрыв на старте</span><span>${rs.gap} м</span>
+      <span>Лавина</span><span style="color:${rel >= 6 ? 'var(--aurora)' : rel >= 0 ? 'var(--gold)' : 'var(--danger)'}">${rel >= 0 ? `на ${rel}% медленнее тебя` : `на ${-rel}% быстрее тебя`}</span>
+      <span>Награда</span><span>${isFarm ? 'рыба и шанс на щенка' : st.boss ? 'сундук великана' : 'рыба и щенок'}</span>`;
+    const bl = Object.entries(S.buffs).filter(([, v]) => v).map(([k]) => BUFFS[k].name);
+    $('preBuffs').innerHTML = bl.map(nm => `<span class="ok">С собой: ${nm}</span>`).join('');
+    $('mPre').hidden = false;
+  }
+  $('preCancel').onclick = () => $('mPre').hidden = true;
+  $('preGo').onclick = () => { $('mPre').hidden = true; startRun(preN, preFarm); };
+
+  // ================= Забег =================
+  const G = 2600, JUMP = 830, JUMP2 = 740, BR_Y = 46, PXM = 10;
+  let R = null, RS = null, course = null, farm = false;
+  let cam = 0, t = 0, py = 0, vy = 0, jumps = 0, phase = 0, shake = 0, falling = false;
+  let gap = 45, stumble = 0, invuln = 0, shield = false, magnetT = 0, x2T = 0, kingT = 0, revive = false;
+  let fishN = 0, fishVal = 0, hits = 0, runOver = false, avaPhase = 0, wolvesDodged = 0;
+
+  function makeCourse(st) {
+    const rnd = mulberry32((Date.now() & 0xffff) * 31 + st.n);
+    const items = [], fish = [], pows = [], wolves = [], rocks = [];
+    const has = h => st.haz.includes(h);
+    const end = st.goal * PXM - 250;
+    let nx = 800;
+    const line = (x0, n, y, dx) => { for (let i = 0; i < n; i++) fish.push({ x: x0 + i * dx, y, got: false }); };
+    function gen() {
+      const s = st.base + 80, roll = rnd();
+      const opts = ['drift', 'drift', 'log'];
+      if (has('ice')) opts.push('ice', 'ice');
+      if (has('branch')) opts.push('branch');
+      const type = opts[Math.floor(roll * opts.length)];
+      let x = nx, w, h = 0;
+      if (type === 'drift') { w = 46 + rnd() * 34; h = 26 + rnd() * 22; }
+      else if (type === 'log') { w = 54 + rnd() * 34; h = 24; }
+      else if (type === 'ice') { w = 64 + rnd() * 70; }
+      else { x += s * .35; w = 70 + rnd() * 60; }
+      items.push({ type, x, w, h });
+      if (rnd() < .65) {
+        if (type === 'branch') line(x + 10, Math.max(2, Math.floor(w / 30)), 16, 30);
+        else { const top = type === 'ice' ? 80 : h + 62; fish.push({ x: x + w / 2 - 32, y: top, got: false }, { x: x + w / 2, y: top + 16, got: false }, { x: x + w / 2 + 32, y: top, got: false }); }
+      }
+      const gp = s * ((st.boss ? .8 : .85) + rnd() * .9);
+      if (rnd() < .45) line(x + w + gp * .28, 3 + Math.floor(rnd() * 3), 16, 32);
+      if (rnd() < .1) pows.push({ x: x + w + gp * .62, y: 58, type: ['shield', 'magnet', 'x2'][Math.floor(rnd() * 3)], got: false });
+      if (has('wolf') && rnd() < .16 + Math.min(.1, st.n * .002)) wolves.push({ x: x + w + gp * .5 + 260, alive: true, ph: 0 });
+      if ((has('rock') && rnd() < .2) || (st.boss && rnd() < .35)) rocks.push({ x: x + w + gp * .55, st: 'wait', y: 0, vy: 0 });
+      nx = x + w + gp;
+    }
+    return { items, fish, pows, wolves, rocks, ensure(up) { while (nx < Math.min(up, end)) gen(); fish.sort((a, c) => a.x - c.x); } };
+  }
+
+  function startRun(n, isFarm) {
+    R = stageInfo(n); RS = runSetup(n); farm = isFarm;
+    S.buffs = { oil: 0, blanket: 0, flare: 0, lantern: 0 }; save();
+    course = makeCourse(R);
+    mode = 'run'; setGround();
+    course.ensure(W + 700);
+    cam = 0; t = 0; py = 0; vy = 0; jumps = 0; shake = 0; falling = false;
+    gap = RS.gap; stumble = 0; invuln = 0; shield = RS.shield; magnetT = RS.magnet; x2T = 0; kingT = 20; revive = RS.revive;
+    fishN = 0; fishVal = 0; hits = 0; runOver = false; wolvesDodged = 0; parts.length = 0; floats.length = 0;
+    $('sMap').hidden = true; $('kennel').hidden = true; $('nav').hidden = true;
+    $('hud').hidden = false; $('hRegion').textContent = `Этап ${R.n} · ${R.name}`;
+    $('hGoal').textContent = ` / ${R.goal} м`;
+    $('tapHint').hidden = S.stats.runs > 1;
+    closeGuard(true);
+    if (tg && tg.BackButton) try { tg.BackButton.hide(); } catch (e) {}
+  }
+
+  function press() {
+    if (mode !== 'run') return;
+    $('tapHint').hidden = true;
+    if (py <= .5 && py > -12 && jumps === 0) { vy = JUMP * (RS.float ? 1.08 : 1); jumps = 1; haptic('light'); burst(PX, GY, 5, ['238,244,255'], 120); }
+    else if (jumps < RS.jumps && py > -12) { vy = JUMP2; jumps++; haptic('light'); burst(PX, GY - py, 4, ['238,244,255'], 100); }
+  }
+  function release() { if (mode === 'run' && vy > 260) vy *= .55; }
+  addEventListener('pointerup', release);
+  addEventListener('keydown', e => {
+    if (mode !== 'run' && mode !== 'paused') return;
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); if (!e.repeat) press(); }
+    if (e.code === 'Escape' || e.code === 'KeyP') { mode === 'run' ? pause() : resume(); }
+  });
+  addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') release(); });
+
+  function hit(kind, o) {
+    if (invuln > 0 || (o && o.broken)) return;
+    if (o) o.broken = true;
+    if (shield) { shield = false; invuln = 1; burst(PX + 20, GY - py - 20, 16, ['120,190,255'], 200); float(PX, GY - py - 70, 'Щит!', '#4aa3ff'); haptic('medium'); return; }
+    hits++; stumble = (kind === 'ice' ? 1.5 : .75) * RS.tough; invuln = stumble + .4;
+    shake = reduced ? 0 : 10; haptic('heavy');
+    burst(PX + 20, GY - py - 16, 14, ['238,244,255'], 200);
+    float(PX, GY - py - 70, kind === 'wolf' ? 'Волк!' : kind === 'rock' ? 'Глыба!' : kind === 'ice' ? 'Полынья!' : 'Ой!', '#ff9f9f', 16);
+  }
+
+  function runStep(dt) {
+    const prog = cam / (R.goal * PXM);
+    const base = R.base + 80 * Math.min(1, prog);
+    if (stumble > 0) stumble -= dt;
+    if (invuln > 0) invuln -= dt;
+    if (magnetT > 0) magnetT -= dt;
+    if (x2T > 0) x2T -= dt;
+    if (RS.king && !shield) { kingT -= dt; if (kingT <= 0) { kingT = 20; shield = true; float(PX, GY - py - 70, 'Щит', '#4aa3ff'); } }
+    const v = base * (stumble > 0 ? .4 : 1);
+    cam += v * dt; t += dt; phase += dt * v / 22;
+    gap += (v - base * RS.ava) * dt / PXM;
+    gap = Math.min(gap, 60);
+    if (gap <= 0) {
+      if (revive) { revive = false; gap = 25; burst(PX - 60, GY - 40, 40, ['159,208,255', '255,255,255'], 320); float(PX, GY - 90, 'Северный дух спас!', '#9fd0ff', 15); haptic('success'); }
+      else return endRun(false);
+    }
+    course.ensure(cam + W + 700);
+    const wx = cam + PX;
+    if (cam / PXM >= R.goal) return endRun(true);
+
+    let overHole = false;
+    if (!RS.ice) for (const o of course.items) { if (o.x > wx) break; if (o.type === 'ice' && wx > o.x + 10 && wx < o.x + o.w - 10) { overHole = true; break; } }
+    if (py > 0 || vy > 0 || overHole) {
+      vy -= G * (RS.float ? .82 : 1) * dt; py += vy * dt;
+      if (py <= 0 && !overHole && py > -14) { py = 0; vy = 0; jumps = 0; }
+    }
+    falling = overHole && py < 0;
+    if (py < -24) {
+      const hole = course.items.find(o => o.type === 'ice' && wx > o.x && wx < o.x + o.w + 30);
+      if (shield) { shield = false; vy = JUMP; py = 0; jumps = 1; float(PX, GY - 70, 'Щит!', '#4aa3ff'); }
+      else { hit('ice', hole); if (hole) cam = hole.x + hole.w + 6 - PX; py = 0; vy = 0; jumps = 0; burst(PX, GY, 18, ['160,200,255'], 220); }
+    }
+    const hx0 = wx - 20, hx1 = wx + 22, hy0 = py + 2, hy1 = py + 30;
+    for (const o of course.items) {
+      if (o.x > wx + 60) break;
+      if (o.x + o.w < wx - 60 || o.broken) continue;
+      if (o.type === 'drift' || o.type === 'log') {
+        const inset = o.type === 'drift' ? o.w * .18 : 4, top = o.type === 'drift' ? o.h * .82 : o.h;
+        if (hx1 > o.x + inset && hx0 < o.x + o.w - inset && hy0 < top) hit(o.type, o);
+      } else if (o.type === 'branch') { if (hx1 > o.x + 6 && hx0 < o.x + o.w - 6 && hy1 > BR_Y) hit('branch', o); }
+    }
+    for (const w of course.wolves) {
+      if (!w.alive) continue;
+      if (w.x - cam < W + 60) { w.x -= 150 * dt; w.ph += dt * 16; }
+      if (w.x < wx - 60) { w.alive = false; wolvesDodged++; continue; }
+      if (Math.abs(w.x - wx) < 34 && hy0 < 28) { w.alive = false; hit('wolf'); }
+    }
+    for (const rk of course.rocks) {
+      if (rk.st === 'gone') continue;
+      const dx = rk.x - wx;
+      if (rk.st === 'wait') { const tl = Math.sqrt(2 * GY / 1800); if (dx < v * (tl + .45)) { rk.st = 'fall'; rk.y = GY + 40; rk.vy = 0; } }
+      else if (rk.st === 'fall') {
+        rk.vy += 1800 * dt; rk.y -= rk.vy * dt;
+        if (Math.abs(dx) < 30 && rk.y < hy1 + 20 && rk.y > hy0 - 10) { rk.st = 'gone'; hit('rock'); burst(rk.x - cam, GY - rk.y, 18, ['238,244,255', '160,180,220'], 220); }
+        else if (rk.y <= 14) { rk.st = 'pile'; rk.y = 0; shake = reduced ? 0 : 5; burst(rk.x - cam, GY - 10, 14, ['238,244,255'], 200); }
+      } else if (rk.st === 'pile') {
+        if (Math.abs(dx) < 26 && hy0 < 24 && !rk.broken) { rk.broken = true; rk.st = 'gone'; hit('rock'); }
+        if (dx < -200) rk.st = 'gone';
+      }
+    }
+    const cy = py + 16, unit = Math.max(1, baseIps() * .6) * RS.fishMult;
+    for (const fi of course.fish) {
+      if (fi.x > wx + 260) break;
+      if (fi.got || fi.x < wx - 80) continue;
+      if (magnetT > 0 && fi.x - wx < 230) { const k = Math.min(1, dt * 10); fi.x += (wx + 6 - fi.x) * k; fi.y += (cy - fi.y) * k; }
+      if (Math.abs(fi.x - wx) < 28 && Math.abs(fi.y - cy) < 30) {
+        fi.got = true; fishN++; const g = unit * (x2T > 0 ? 2 : 1); fishVal += g;
+        float(PX + 10, GY - py - 46, '+' + short(g), '#ffb07f', 13); haptic('soft');
+      }
+    }
+    for (const p of course.pows) {
+      if (p.x > wx + 60) break;
+      if (p.got || p.x < wx - 60) continue;
+      if (Math.abs(p.x - wx) < 30 && Math.abs(p.y - cy) < 34) {
+        p.got = true; haptic('medium');
+        if (p.type === 'shield') { shield = true; float(PX, GY - py - 70, 'Щит', '#4aa3ff'); }
+        else if (p.type === 'magnet') { magnetT = Math.max(magnetT, 6); float(PX, GY - py - 70, 'Магнит', '#ff5d7a'); }
+        else { x2T = 8; float(PX, GY - py - 70, 'Рыба ×2', '#ffc94a'); }
+      }
+    }
+  }
+
+  function drawObstacles() {
+    for (const o of course.items) {
+      const x = o.x - cam;
+      if (x > W + 120) break;
+      if (x + o.w < -120 || o.broken) continue;
+      if (o.type === 'ice') {
+        if (RS.ice) { b.fillStyle = 'rgba(170,215,255,.9)'; b.fillRect(x, GY - 1, o.w, 8); continue; }
+        const wg = b.createLinearGradient(0, GY, 0, H); wg.addColorStop(0, '#123a66'); wg.addColorStop(1, '#030c1c');
+        b.fillStyle = wg; b.fillRect(x, GY - 1, o.w, H - GY + 2);
+        b.fillStyle = '#d6e8ff'; b.fillRect(x - 4, GY - 3, 8, 7); b.fillRect(x + o.w - 4, GY - 3, 8, 7);
+      } else if (o.type === 'drift') {
+        b.fillStyle = '#f6f9ff'; b.beginPath(); b.moveTo(x, GY + 1); b.bezierCurveTo(x + o.w * .18, GY - o.h * 1.15, x + o.w * .7, GY - o.h * 1.2, x + o.w, GY + 1); b.fill();
+        b.fillStyle = 'rgba(130,160,220,.4)'; b.beginPath(); b.moveTo(x + o.w * .5, GY + 1); b.bezierCurveTo(x + o.w * .62, GY - o.h * .7, x + o.w * .82, GY - o.h * .55, x + o.w, GY + 1); b.fill();
+      } else if (o.type === 'log') {
+        b.fillStyle = '#5f402b'; rrect(b, x, GY - o.h, o.w, o.h, 8);
+        b.fillStyle = '#c99c6c'; ellipse(b, x + o.w - 6, GY - o.h / 2, 7, o.h / 2);
+        b.fillStyle = '#f6f9ff'; rrect(b, x + 2, GY - o.h - 4, o.w - 10, 7, 4);
+      } else if (o.type === 'branch') {
+        const by = GY - BR_Y;
+        b.fillStyle = '#241a2e'; b.fillRect(x + o.w - 4, -20, 14, by + 24);
+        b.strokeStyle = '#3a2a22'; b.lineWidth = 7; b.lineCap = 'round';
+        b.beginPath(); b.moveTo(x + o.w + 2, by - 14); b.quadraticCurveTo(x + o.w * .5, by - 8, x + 2, by - 10); b.stroke();
+        b.strokeStyle = '#1d4a3c'; b.lineWidth = 3;
+        for (let k = 0; k < o.w; k += 7) { const xx = x + 4 + k; b.beginPath(); b.moveTo(xx, by - 10); b.lineTo(xx - 5, by - 1); b.stroke(); }
+        b.fillStyle = '#f6f9ff'; rrect(b, x + 4, by - 19, o.w - 6, 6, 3);
+      }
+    }
+    for (const w of course.wolves) {
+      if (!w.alive) continue; const x = w.x - cam; if (x > W + 60 || x < -60) continue;
+      b.save(); b.translate(x, GY); b.scale(-1, 1); drawHusky(b, WOLF, w.ph, false, t); b.restore();
+    }
+    for (const rk of course.rocks) {
+      if (rk.st === 'gone' || rk.st === 'wait') continue; const x = rk.x - cam; if (x > W + 60 || x < -60) continue;
+      if (rk.st === 'fall') {
+        const k = 1 - Math.min(1, rk.y / (GY + 40));
+        b.fillStyle = `rgba(30,45,95,${.15 + .35 * k})`; ellipse(b, x, GY + 2, 14 + 16 * k, 4);
+        b.fillStyle = '#e9f0fc'; b.beginPath(); b.arc(x, GY - rk.y - 16, 20, 0, Math.PI * 2); b.fill();
+        b.fillStyle = 'rgba(130,160,220,.5)'; b.beginPath(); b.arc(x + 6, GY - rk.y - 12, 12, 0, Math.PI * 2); b.fill();
+      } else {
+        b.fillStyle = '#eef4ff'; b.beginPath(); b.moveTo(x - 26, GY + 1); b.quadraticCurveTo(x - 10, GY - 30, x + 4, GY - 22); b.quadraticCurveTo(x + 20, GY - 26, x + 28, GY + 1); b.fill();
+      }
+    }
+    for (const rk of course.rocks) {
+      if (rk.st !== 'wait') continue; const x = rk.x - cam; if (x > W - 20 || x < PX) continue;
+      if (x < W * .85) { b.fillStyle = `rgba(255,93,93,${.3 + .25 * Math.sin(t * 12)})`; ellipse(b, x, GY + 2, 18, 4); }
+    }
+    for (const fi of course.fish) { const x = fi.x - cam; if (x > W + 40) break; if (fi.got || x < -40) continue; drawFishSprite(b, x, GY - fi.y + (reduced ? 0 : Math.sin(t * 4 + fi.x * .05) * 3), 1); }
+    for (const p of course.pows) {
+      const x = p.x - cam; if (x > W + 40) break; if (p.got || x < -40) continue;
+      const col = p.type === 'shield' ? '#4aa3ff' : p.type === 'magnet' ? '#ff5d7a' : '#ffc94a', y = GY - p.y;
+      const g = b.createRadialGradient(x, y, 4, x, y, 26); g.addColorStop(0, hexA(col, .5)); g.addColorStop(1, hexA(col, 0));
+      b.fillStyle = g; b.beginPath(); b.arc(x, y, 26, 0, Math.PI * 2); b.fill();
+      b.fillStyle = 'rgba(9,18,44,.85)'; b.strokeStyle = col; b.lineWidth = 2; b.beginPath(); b.arc(x, y, 14, 0, Math.PI * 2); b.fill(); b.stroke();
+      b.fillStyle = col; b.font = '800 10px Unbounded, sans-serif'; b.textAlign = 'center'; b.textBaseline = 'middle';
+      b.fillText(p.type === 'shield' ? 'Щ' : p.type === 'magnet' ? 'М' : '×2', x, y + 1);
+    }
+    const x = R.goal * PXM - cam + PX;
+    if (x < W + 80 && x > -80) {
+      b.fillStyle = '#3a2a22'; b.fillRect(x - 2, GY - 120, 4, 120); b.fillRect(x + 78, GY - 120, 4, 120);
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 2; j++) { b.fillStyle = (i + j) % 2 ? '#eef4ff' : '#0a1430'; b.fillRect(x + i * 10, GY - 120 + j * 10, 10, 10); }
+      b.fillStyle = R.col; b.font = '800 12px Unbounded, sans-serif'; b.textAlign = 'center'; b.fillText('ФИНИШ', x + 40, GY - 132);
+    }
+  }
+  function drawAvalanche() {
+    const wall = PX - 26 - gap * 3.4;
+    if (wall < -170) return;
+    avaPhase += .016;
+    const g = b.createLinearGradient(wall - 160, 0, wall + 60, 0);
+    g.addColorStop(0, 'rgba(240,246,255,1)'); g.addColorStop(.75, 'rgba(240,246,255,.95)'); g.addColorStop(1, 'rgba(240,246,255,0)');
+    b.fillStyle = g; b.fillRect(-20, GY - H * .55, wall + 60, H);
+    for (let i = 0; i < 14; i++) {
+      const yy = GY + 10 - i * (H * .045), r = 34 + hash(i) * 40, xx = wall - 30 + Math.sin(avaPhase * 3 + i) * 14 + hash(i + 5) * 30;
+      b.fillStyle = i % 3 ? '#f4f8ff' : '#dbe6f7'; b.beginPath(); b.arc(xx, yy, r, 0, Math.PI * 2); b.fill();
+    }
+    if (!reduced && Math.random() < .6) parts.push({ x: wall + 20, y: GY - Math.random() * H * .4, vx: 120 + Math.random() * 160, vy: -Math.random() * 60, life: .6, age: 0, r: 2 + Math.random() * 3, col: '238,244,255', st: false, g: 200 });
+    if (gap < 18) { const a = (1 - gap / 18) * .35; const vg = b.createRadialGradient(0, H / 2, 10, 0, H / 2, W * .8); vg.addColorStop(0, `rgba(255,93,93,${a})`); vg.addColorStop(1, 'rgba(255,93,93,0)'); b.fillStyle = vg; b.fillRect(0, 0, W, H); }
+  }
+  function drawStorm() {
+    const cx = PX + 60, cy = GY - 40, vis = RS.vis;
+    const g = b.createRadialGradient(cx, cy, vis * .35, cx, cy, vis);
+    g.addColorStop(0, 'rgba(205,218,240,0)'); g.addColorStop(1, 'rgba(205,218,240,.93)');
+    b.fillStyle = g; b.fillRect(0, 0, W, H);
+    b.strokeStyle = 'rgba(255,255,255,.55)'; b.lineWidth = 1.2;
+    for (let i = 0; i < 40; i++) { const x = (hash(i) * W * 1.4 - (t * 900 * (1 + hash(i + 3))) % (W * 1.4) + W * 1.4) % (W * 1.4) - W * .2, y = hash(i + 9) * H; b.beginPath(); b.moveTo(x, y); b.lineTo(x + 26, y - 4); b.stroke(); }
+  }
+  function drawRun(dt) {
+    b.save();
+    if (shake > 0) { b.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake); shake *= .88; if (shake < .4) shake = 0; }
+    drawWorld(t, cam, R.col, R.boss);
+    drawObstacles();
+    const air = py > .5 || falling;
+    const k = 1 - Math.min(py, 130) / 260;
+    if (!falling && py >= 0) { b.fillStyle = `rgba(40,60,120,${.28 * k})`; ellipse(b, PX + 2, GY + 3, 24 * k, 4 * k); }
+    const blink = invuln > 0 && Math.floor(t * 16) % 2 === 0;
+    const sk = breed((teamCells()[0] || { v: 1 }).v);
+    if (!blink) { b.save(); b.translate(PX, GY - py); if (stumble > 0) b.rotate(-.25); drawHusky(b, sk, phase, air, t); b.restore(); }
+    if (shield) { b.strokeStyle = `rgba(120,190,255,${.55 + Math.sin(t * 6) * .2})`; b.lineWidth = 2; b.fillStyle = 'rgba(120,190,255,.1)'; b.beginPath(); b.ellipse(PX + 4, GY - py - 24, 40, 32, 0, 0, Math.PI * 2); b.fill(); b.stroke(); }
+    drawAvalanche();
+    if (R.haz.includes('storm')) drawStorm();
+    drawFlakes(dt, R.haz.includes('storm') ? .9 : .25);
+    b.restore();
+  }
+
+  function updateHud() {
+    const m = Math.floor(cam / PXM);
+    $('hDist').textContent = short(m);
+    $('hFish').textContent = short(fishVal);
+    const p = Math.min(100, m / R.goal * 100); $('hProg').style.width = p + '%'; $('hProgT').textContent = Math.floor(p) + '%';
+    $('hGap').style.width = Math.max(0, gap / 60 * 100) + '%';
+    $('hGapT').textContent = Math.max(0, Math.floor(gap)) + ' м';
+    $('mGap').classList.toggle('danger', gap < 15);
+    $('mGap').style.setProperty('--mc', gap < 15 ? 'var(--danger)' : gap < 28 ? 'var(--gold)' : '#9fd0ff');
+    const pw = [];
+    if (shield) pw.push(['Щит', '#4aa3ff', 1]);
+    if (magnetT > 0) pw.push(['Магнит', '#ff5d7a', magnetT === Infinity ? 1 : Math.min(1, magnetT / 12)]);
+    if (x2T > 0) pw.push(['Рыба ×2', '#ffc94a', x2T / 8]);
+    if (revive) pw.push(['Дух', '#9fd0ff', 1]);
+    const html = pw.map(([n, c, k]) => `<span class="pow" style="--pc:${c}">${n}<i style="width:${k * 100}%"></i></span>`).join('');
+    if ($('hPows').innerHTML !== html) $('hPows').innerHTML = html;
+  }
+
+  function pause() { if (mode !== 'run') return; mode = 'paused'; $('mPause').hidden = false; }
+  function resume() { if (mode !== 'paused') return; mode = 'run'; $('mPause').hidden = true; }
+  $('bPause').onclick = pause; $('bResume').onclick = resume;
+  $('bQuit').onclick = () => { $('mPause').hidden = true; mode = 'run'; endRun(false, true); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); syncSave(true); if (mode === 'run') pause(); } else if (mode === 'kennel') checkAway(); });
+
+  // ================= Итоги =================
+  let lastRes = null;
+  function endRun(win, quit) {
+    if (runOver) return; runOver = true;
+    mode = 'over';
+    const m = Math.floor(cam / PXM);
+    earn(fishVal); S.stats.runs++; S.stats.wolves += wolvesDodged;
+    let loot = [], bonus = 0, newBreed = 0, shard = 0, capUp = 0, first = false;
+    if (win) {
+      first = !farm && R.n === S.cleared + 1;
+      const ips = Math.max(1, baseIps());
+      if (first) {
+        const oldCap = cap();
+        S.cleared++; S.bestStage = Math.max(S.bestStage, S.cleared);
+        if (cap() > oldCap) capUp = cap();
+        bonus = Math.round(ips * (R.boss ? 240 : 90) + 100 * R.n);
+        const n = (R.boss ? 3 : 1) + (RS.luck ? 1 : 0);
+        for (let k = 0; k < n; k++) { const L = Math.max(1, cap() - (k === 0 ? 2 : 3)); loot.push(L); newBreed = Math.max(newBreed, addDog(L)); }
+        if (R.boss && R.n > S.bossBest) { S.bossBest = R.n; S.shards++; shard = 1; }
+      } else {
+        bonus = Math.round(ips * 35);
+        if (Math.random() < .5 || RS.luck) { const L = Math.max(1, cap() - 4); loot.push(L); newBreed = Math.max(newBreed, addDog(L)); }
+      }
+      earn(bonus);
+    }
+    save();
+    lastRes = { win, quit, m, loot, bonus, newBreed, shard, capUp, first };
+    burst(PX + 20, GY - 30, win ? 40 : 10, win ? ['255,201,74', '126,240,200', '255,255,255'] : ['238,244,255'], 300);
+    haptic(win ? 'success' : 'error');
+    checkAch();
+    setTimeout(showResult, win ? 500 : 900);
+  }
+  function showResult() {
+    const L = lastRes;
+    $('hud').hidden = true; $('tapHint').hidden = true;
+    $('resEye').textContent = `Этап ${R.n} · ${R.name}`;
+    $('resTitle').textContent = L.win ? (R.boss ? 'Великан повержен!' : L.first ? 'Этап пройден!' : 'Снова дошёл!') : L.quit ? 'Поход прерван' : 'Лавина догнала';
+    $('resSub').textContent = L.win ? (L.first ? `Впереди этап ${S.cleared + 1}` : 'Повторный проход') : `Пройдено ${short(L.m)} из ${R.goal} м`;
+    $('resFish').textContent = '+' + short(fishVal + L.bonus);
+    $('resLoot').innerHTML = L.loot.map(v => `<div><img alt="" src="${thumb(v)}">${breed(v).name}</div>`).join('') + (L.shard ? `<div><span class="sh"><svg width="34" height="34"><use href="#i-shard"/></svg></span>Осколок сияния</div>` : '');
+    $('resUnlock').hidden = !L.capUp;
+    if (L.capUp) $('resUnlock').textContent = `Открыта новая порода: ${breed(L.capUp).name} (ур. ${L.capUp})`;
+    const tip = $('resTip');
+    if (!L.win && !L.quit) {
+      const pw = teamPower(), req = R.req;
+      tip.hidden = false;
+      tip.textContent = pw < req
+        ? `Сила упряжки ${pw}, а нужно ${req}. Выведи хаски посильнее, купи «Свисток каюра» в мастерской или повтори прошлый этап, чтобы накопить рыбы.`
+        : 'Каждый удар подпускает лавину ближе. Прыгай чуть раньше и держи палец дольше. Сигнальная ракета на ярмарке даёт +20 м отрыва.';
+    } else tip.hidden = true;
+    $('resNext').hidden = !L.win;
+    $('resNext').textContent = `Дальше: этап ${S.cleared + 1}`;
+    $('mResult').hidden = false;
+  }
+  function backToKennel(next) {
+    $('mResult').hidden = true;
+    closeGuard(false);
+    mode = 'kennel'; course = null; cam = 0;
+    $('kennel').hidden = false; $('nav').hidden = false;
+    const rn = R.n, wasFarm = farm;
+    if (next === 'next') { setTab('map'); openPre(S.cleared + 1, false); }
+    else if (next === 'again') { setTab('map'); openPre(Math.min(rn, S.cleared + 1), wasFarm || rn <= S.cleared); }
+    else setTab('kennel');
+    setGround();
+    if (lastRes && lastRes.newBreed) setTimeout(() => showReveal(lastRes.newBreed), 300);
+  }
+  $('resOk').onclick = () => backToKennel('home');
+  $('resAgain').onclick = () => backToKennel('again');
+  $('resNext').onclick = () => backToKennel('next');
+
+  // ================= Мастерская =================
+  let prestConfirm = false;
+  function renderShop() {
+    const list = $('upgList'); list.innerHTML = '';
+    for (const u of UPG) {
+      const l = wl(u.id), maxed = l >= u.max, c = upCost(u);
+      const el = document.createElement('div'); el.className = 'upg';
+      el.innerHTML = `<div class="ic" style="--uc:${u.col}"><svg><use href="#${u.icon}"/></svg></div>
+        <div class="body"><div class="nm"><h3>${u.name}</h3><span>ур. ${l}${u.max !== Infinity ? ' / ' + u.max : ''}</span></div>
+        <p>${u.text}</p><div class="eff">Сейчас: ${u.eff(l)}${maxed ? '' : ` → ${u.eff(l + 1)}`}</div></div>`;
+      const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'primary small';
+      bt.disabled = maxed || S.fish < c; bt.textContent = maxed ? 'Максимум' : `Улучшить · ${short(c)} FISH`;
+      bt.onclick = () => {
+        if (S.fish < c || wl(u.id) >= u.max) return;
+        S.fish -= c; S.ws[u.id] = l + 1; S.stats.upgrades++;
+        if (u.id === 'slots') fixSlots();
+        save(); haptic('success'); renderShop(); render(); checkAch();
+      };
+      el.querySelector('.body').appendChild(bt);
+      list.appendChild(el);
+    }
+    const gain = prestigeGain(), can = S.cleared >= 15;
+    const pc = $('prestCard');
+    pc.innerHTML = `<span class="eyebrow" style="color:var(--shard)">Перерождение</span>
+      <h3>Великий поход</h3>
+      <div class="big"><svg><use href="#i-shard"/></svg>${S.shards}<span style="font-size:14px;font-family:var(--body);font-weight:600;color:var(--muted)">осколков сияния</span></div>
+      <p class="note" style="color:#c9d4ee">Каждый осколок навсегда даёт +10% к доходу, а с ростом их числа растёт и сила упряжки. Сейчас: доход ×${shardMult().toFixed(1).replace('.', ',')}, сила +${shardPower()}. Осколки также падают с Ледяных великанов.</p>
+      <ul><li>Начнёшь с этапа 1 с пустым питомником и мастерской.</li><li>Сохранятся осколки, достижения и коллекция пород.</li><li>Стартовые щенки будут старше с каждым походом.</li></ul>`;
+    if (prestConfirm && can) {
+      const cf = document.createElement('div'); cf.className = 'confirm';
+      cf.innerHTML = `<span>Питомник, рыба, этапы и улучшения сбросятся. Взамен получишь <b>${gain}</b> осколк${gain % 10 === 1 && gain % 100 !== 11 ? '' : 'ов'} сияния, и следующий поход пойдёт быстрее. Начинаем?</span>`;
+      const row = document.createElement('div'); row.className = 'btns two';
+      const no = document.createElement('button'); no.type = 'button'; no.className = 'ghost small'; no.textContent = 'Отмена'; no.onclick = () => { prestConfirm = false; renderShop(); };
+      const yes = document.createElement('button'); yes.type = 'button'; yes.className = 'primary small shardbtn'; yes.textContent = 'Да, в великий поход'; yes.onclick = doPrestige;
+      row.append(no, yes); cf.appendChild(row); pc.appendChild(cf);
+    } else {
+      const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'primary shardbtn';
+      bt.disabled = !can || gain < 1;
+      bt.textContent = can ? `Начать великий поход: +${gain}` : `Откроется после этапа 15 (сейчас ${S.cleared})`;
+      bt.onclick = () => { prestConfirm = true; renderShop(); };
+      pc.appendChild(bt);
+    }
+    $('achSum').textContent = `${S.ach.length} из ${ACH.length} · +${S.ach.length * 3}%`;
+    $('achList').innerHTML = ACH.map(([id, n, d]) => {
+      const done = S.ach.includes(id);
+      return `<div class="ach${done ? ' done' : ''}"><span class="ck">${done ? '<svg width="16" height="16"><use href="#i-check"/></svg>' : ''}</span><span><b>${n}</b><small>${d}</small></span><span class="bonus">+3%</span></div>`;
+    }).join('');
+  }
+  function doPrestige() {
+    const gain = prestigeGain();
+    S.shards += gain; S.prestiges++;
+    Object.assign(S, freshRun(S.prestiges));
+    prestConfirm = false; crateT = crateEvery(0);
+    noteLevel(S.maxLvl);
+    save(); checkAch();
+    burst(W / 2, H * .35, 60, ['159,208,255', '255,255,255', '126,240,200'], 380);
+    haptic('success');
+    showToast(`Великий поход №${S.prestiges + 1} начался: +${gain} осколков, доход ×${shardMult().toFixed(1).replace('.', ',')}`);
+    setTab('kennel');
+  }
+
+  function checkAch() {
+    const got = [];
+    for (const [id, n, , fn] of ACH) if (!S.ach.includes(id) && fn(S)) { S.ach.push(id); got.push(n); }
+    if (got.length) { save(); showToast(`Достижение: ${got.join(', ')} · +${got.length * 3}% к доходу`, true); haptic('success'); }
+  }
+
+  // ================= Ярмарка =================
+  const BUFFS = {
+    oil: { name: 'Рыбий жир', icon: 'i-oil', text: '+50% рыбы в следующем походе', k: 40 },
+    blanket: { name: 'Тёплая попона', icon: 'i-blanket', text: 'Защитит от первого удара', k: 60 },
+    flare: { name: 'Сигнальная ракета', icon: 'i-flare', text: '+20 м отрыва от лавины на старте', k: 80 },
+    lantern: { name: 'Фонарь', icon: 'i-lantern', text: 'Видно намного дальше в пурге', k: 50 }
+  };
+  const buffPrice = k => Math.round(Math.max(60, baseIps() * BUFFS[k].k));
+  const TRADERS = [
+    { n: 'Каюр Степан', role: 'продаёт хаски', a: 'С', c: '#ffc94a' },
+    { n: 'Купец Борис', role: 'скупает хаски', a: 'Б', c: '#7fd0ff' },
+    { n: 'Шаманка Айна', role: 'меняет хаски', a: 'А', c: '#a48cff' }
+  ];
+  const marketWin = () => Math.floor(Date.now() / 600000);
+  function offers() {
+    const w = marketWin();
+    if (S.market.win !== w) { S.market = { win: w, used: [] }; save(); }
+    const r = mulberry32(w * 7 + S.maxLvl * 13), c = cap(), top = Math.max(1, Math.min(S.maxLvl, c));
+    const buyL = Math.max(1, Math.min(c, top - (r() < .5 ? 0 : 1)));
+    const sellL = Math.max(1, top - 1 - Math.floor(r() * 2));
+    const swapL = Math.max(1, Math.min(c - 2, top - 2 - Math.floor(r() * 2)));
+    return [{ id: 0, t: 0, L: buyL, price: Math.round(value(buyL) * 1.35) }, { id: 1, t: 1, L: sellL, price: Math.round(value(sellL) * .9 * achMult()) }, { id: 2, t: 2, L: swapL }];
+  }
+  function fairTimerText() { const w = marketWin(), left = (w + 1) * 600000 - Date.now(); return `Новые предложения через ${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}`; }
+  function renderFair() {
+    $('fairTimer').textContent = fairTimerText();
+    const box = $('traders'); box.innerHTML = '';
+    for (const o of offers()) {
+      const tr = TRADERS[o.t], used = S.market.used.includes(o.id);
+      const el = document.createElement('div'); el.className = 'trader' + (used ? ' done' : '');
+      let deal = '', btnTxt = '', ok = false, act = null;
+      if (o.t === 0) {
+        deal = `<img alt="" src="${thumb(o.L)}"><span class="x">${breed(o.L).name} · ур. ${o.L}</span>`;
+        btnTxt = `Купить · ${short(o.price)} FISH`; ok = S.fish >= o.price && !used;
+        act = () => { S.fish -= o.price; return addDog(o.L); };
+      } else if (o.t === 1) {
+        const has = S.cells.includes(o.L);
+        deal = `<img alt="" src="${thumb(o.L)}"><span class="arrow">→</span><span class="x">${short(o.price)} FISH</span>`;
+        btnTxt = has ? 'Продать' : `Нужен ${breed(o.L).name}`; ok = has && !used;
+        act = () => { S.cells[S.cells.indexOf(o.L)] = 0; earn(o.price); return 0; };
+      } else {
+        const cnt = S.cells.filter(v => v === o.L).length;
+        deal = `<img alt="" src="${thumb(o.L)}"><span class="x">×2</span><span class="arrow">→</span><img alt="" src="${thumb(o.L + 2)}"><span class="x">ур. ${o.L + 2}</span>`;
+        btnTxt = cnt >= 2 ? 'Обменять' : `Нужно 2 × ${breed(o.L).name} (есть ${cnt})`; ok = cnt >= 2 && !used;
+        act = () => { let k = 0; S.cells = S.cells.map(v => (v === o.L && k < 2) ? (k++, 0) : v); return addDog(o.L + 2); };
+      }
+      el.innerHTML = `<div class="ava" style="--ac:${tr.c}">${tr.a}</div><div class="body"><div class="who"><h3>${tr.n}</h3><small>${tr.role}</small></div><div class="deal">${deal}</div></div>`;
+      const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'primary small'; bt.disabled = !ok;
+      bt.textContent = used ? 'Сделка заключена' : btnTxt;
+      bt.onclick = () => {
+        const nb = act(); S.market.used.push(o.id); S.stats.trades++; save(); render(); renderFair(); updateUi(true);
+        haptic('success'); showToast('Сделка заключена'); checkAch();
+        if (nb) setTimeout(() => showReveal(nb), 300);
+      };
+      el.querySelector('.body').appendChild(bt);
+      box.appendChild(el);
+    }
+    const bb = $('buffs'); bb.innerHTML = '';
+    for (const [k, bf] of Object.entries(BUFFS)) {
+      const el = document.createElement('div'); el.className = 'buff';
+      el.innerHTML = `<svg viewBox="0 0 36 36"><use href="#${bf.icon}"/></svg><b>${bf.name}</b><p>${bf.text}</p>`;
+      if (S.buffs[k]) { const s = document.createElement('div'); s.className = 'have'; s.textContent = 'Возьмёшь с собой'; el.appendChild(s); }
+      else {
+        const p = buffPrice(k), bt = document.createElement('button'); bt.type = 'button'; bt.className = 'primary small'; bt.disabled = S.fish < p;
+        bt.textContent = `${short(p)} FISH`;
+        bt.onclick = () => { S.fish -= p; S.buffs[k] = 1; save(); renderFair(); updateUi(); haptic('success'); };
+        el.appendChild(bt);
+      }
+      bb.appendChild(el);
+    }
+  }
+
+  // ================= Породы =================
+  function renderDex() {
+    const upto = Math.max(16, S.maxEver + 2);
+    $('dexCount').textContent = `Открыто ${S.maxEver}`;
+    const list = $('dexList'); list.innerHTML = '';
+    for (let L = 1; L <= upto; L++) {
+      const br = breed(L), open = L <= S.maxEver, tier = TIER(L);
+      const el = document.createElement('div'); el.className = 'breed' + (open ? '' : ' locked'); el.style.setProperty('--rc', tier.col);
+      el.innerHTML = `<div class="th"><img alt="" src="${thumb(L)}" loading="lazy"></div>
+        <div><div class="nm"><b>${open ? br.name : '???'}</b><span>Ур. ${L} · ${tier.name}</span></div>
+        <div class="perk">${PERK[br.perk]}</div>
+        <p>${open ? br.text : L > cap() ? `Откроется после этапа ${stageForCap(L)}` : `Объедини двух хаски ур. ${L - 1}`}</p>
+        <div class="inc">${fmtIps(inc(L) * incomeMult())} FISH в секунду</div></div>`;
+      list.appendChild(el);
+    }
+  }
+
+  // ================= Окна =================
+  let revealL = 0;
+  function showReveal(L) {
+    revealL = L; const br = breed(L), tier = TIER(L);
+    $('revealPanel').style.setProperty('--rc', tier.col);
+    $('rvImg').src = thumb(L); $('rvName').textContent = br.name;
+    $('rvLvl').textContent = `Ур. ${L} · ${tier.name}`;
+    $('rvInc').textContent = `+${fmtIps(inc(L) * incomeMult())} FISH/сек`;
+    $('rvPerk').textContent = 'В упряжке: ' + PERK[br.perk].toLowerCase();
+    $('rvText').textContent = br.text;
+    $('mReveal').hidden = false;
+    burst(W / 2, H * .4, 50, [rgb(tier.col), '255,255,255', '255,201,74'], 360);
+  }
+  $('rvOk').onclick = () => { $('mReveal').hidden = true; render(); };
+  $('rvShare').onclick = () => share(`🐺 Вывел породу «${breed(revealL).name}» (ур. ${revealL}) в «Хаски: Зов Севера»! Моя упряжка уже на этапе ${S.cleared}.\nА твоя далеко ушла от лавины?`);
+  $('bInvite').onclick = () => share(`🐺 Ухожу от лавины на Север: этап ${S.bestStage}, лучшая порода ур. ${S.maxEver}${S.shards ? `, осколков сияния: ${S.shards}` : ''}.\nЗалетай, посмотрим, кто уйдёт дальше!`);
+  function share(text) {
+    if (tg && CFG.BOT_LINK) { try { tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(CFG.BOT_LINK) + '&text=' + encodeURIComponent(text)); return; } catch (e) {} }
+    const full = CFG.BOT_LINK ? text + '\n' + CFG.BOT_LINK : text;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(full).then(() => showToast('Текст скопирован, отправь другу'), () => showToast('Не удалось скопировать текст'));
+    else showToast('Не удалось скопировать текст');
+  }
+  let awaySum = 0;
+  function checkAway() {
+    const capH = 3 + wl('house');
+    const sec = Math.min((Date.now() - (S.last || Date.now())) / 1000, capH * 3600);
+    S.last = Date.now(); if (sec < 60) return;
+    const g = baseIps() * sec; if (g < 1) return;
+    awaySum = g; $('awayTitle').textContent = `Пока тебя не было ${fmtTime(sec)}`; $('awaySum').textContent = short(g);
+    $('awayNote').textContent = `Улов копится до ${capH} ч. Тёплая будка в мастерской увеличивает этот срок.`;
+    $('mAway').hidden = false;
+  }
+  $('awayOk').onclick = () => { $('mAway').hidden = true; earn(awaySum); save(); burst(W / 2, H * .15, 30, ['255,201,74', '255,159,107', '255,255,255'], 260); haptic('success'); updateUi(); checkAch(); };
+  const toastEl = $('toast');
+  function showToast(m, ach) { toastEl.textContent = m; toastEl.classList.toggle('ach', !!ach); toastEl.hidden = false; clearTimeout(showToast.t); showToast.t = setTimeout(() => toastEl.hidden = true, ach ? 3500 : 2800); }
+
+  // ================= Цикл =================
+  const timers = new Array(30).fill(0).map((_, i) => 1 + i * .23);
+  let prev = performance.now(), saveT = 0, uiT = 0, kt = 0, achT = 0;
+  function frame(now) {
+    const dt = Math.min(.05, (now - prev) / 1000); prev = now;
+    const mul = incomeMult() * boostMult(), inKennel = mode === 'kennel' && tab === 'kennel';
+    S.cells.forEach((v, i) => {
+      if (v <= 0) return;
+      earn(inc(v) * mul * dt);
+      if (inKennel) { timers[i] -= dt; if (timers[i] <= 0) { timers[i] = 3; if (!drag || drag.i !== i) { const [x, y] = cellCenter(i); float(x, y - 30, '+' + short(inc(v) * mul * 3), '#ffb07f', 12); } } }
+    });
+    if (mode === 'run') { let rem = dt; while (rem > 0 && mode === 'run') { const h = Math.min(rem, 1 / 120); runStep(h); rem -= h; } }
+    if (mode === 'run' || mode === 'paused' || mode === 'over') {
+      if (mode === 'over') t += dt;
+      drawRun(mode === 'paused' ? 0 : dt);
+      if (mode !== 'over') updateHud();
+    } else {
+      kt += dt; crateTick(dt); gfTick(dt);
+      drawWorld(kt, 0, null, false);
+      if (gf.on) { const gx = gf.x, gy = gf.y + Math.sin(kt * 3) * 10; const g = b.createRadialGradient(gx, gy, 4, gx, gy, 46); g.addColorStop(0, 'rgba(126,240,200,.6)'); g.addColorStop(1, 'rgba(126,240,200,0)'); b.fillStyle = g; b.beginPath(); b.arc(gx, gy, 46, 0, Math.PI * 2); b.fill(); b.save(); b.translate(gx, gy); b.scale(-1, 1); drawFishSprite(b, 0, 0, 2.1, true); b.restore(); }
+      drawFlakes(dt, .25);
+      uiT -= dt;
+      if (uiT <= 0) {
+        uiT = .2; updateUi();
+        if (tab === 'fair') { if (S.market.win !== marketWin()) renderFair(); else $('fairTimer').textContent = fairTimerText(); }
+        if (tab === 'shop') document.querySelectorAll('#upgList .upg').forEach((el, i) => { const u = UPG[i], bt = el.querySelector('button'); if (bt && wl(u.id) < u.max) bt.disabled = S.fish < upCost(u); });
+      }
+    }
+    if (mode !== 'paused') drawFx(dt);
+    achT -= dt; if (achT <= 0) { achT = 2; checkAch(); }
+    saveT -= dt; if (saveT <= 0) { saveT = 3; save(); }
+    requestAnimationFrame(frame);
+  }
+
+  render();
+  relayout();
+  checkAway();
+  syncLoad();
+  requestAnimationFrame(frame);
+  if (!S.merged) setTimeout(() => { [0, 1].forEach(i => grid.children[i] && grid.children[i].classList.add('match')); }, 600);
+})();
+</script>
+
+</body></html>
