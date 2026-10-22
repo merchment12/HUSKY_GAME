@@ -1,0 +1,27 @@
+# /etc/systemd/system/husky.service
+# systemctl daemon-reload && systemctl enable --now husky
+[Unit]
+Description=Husky: Call of the North (Telegram Mini App)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=husky
+Group=husky
+WorkingDirectory=/srv/husky
+EnvironmentFile=/etc/husky.env
+ExecStart=/srv/husky/.venv/bin/python -m server.main
+Restart=always
+RestartSec=3
+
+# база и логи — единственное, что процессу нужно писать
+StateDirectory=husky
+ProtectSystem=strict
+ReadWritePaths=/var/lib/husky
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
